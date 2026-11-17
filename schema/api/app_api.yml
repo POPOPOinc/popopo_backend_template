@@ -1,0 +1,112 @@
+openapi: 3.0.3
+info:
+  title: App API
+  version: 1.0.0
+  description: |
+    エンドユーザー向けアプリが利用する API。
+    読み取りはクライアントが Firestore を直接読む（schema の Document 型を共有する）ため、ここには書き込み・操作系のみを定義する。
+security:
+  - FirebaseIdToken: []
+paths:
+  /api/v1/users/me:
+    post:
+      operationId: registerUser
+      summary: ユーザー登録する
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterUserRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "./components.yml#/components/schemas/OKResponse"
+        default:
+          $ref: "./components.yml#/components/responses/Error"
+    put:
+      operationId: updateUser
+      summary: 自分のユーザー情報を更新する
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "./components.yml#/components/schemas/OKResponse"
+        default:
+          $ref: "./components.yml#/components/responses/Error"
+  /api/v1/posts:
+    post:
+      operationId: createPost
+      summary: 投稿する
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "./components.yml#/components/schemas/IDResponse"
+        default:
+          $ref: "./components.yml#/components/responses/Error"
+  /api/v1/posts/{post_id}:
+    delete:
+      operationId: deletePost
+      summary: 自分の投稿を削除する
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "./components.yml#/components/schemas/OKResponse"
+        default:
+          $ref: "./components.yml#/components/responses/Error"
+components:
+  securitySchemes:
+    FirebaseIdToken:
+      $ref: "./components.yml#/components/securitySchemes/FirebaseIdToken"
+  schemas:
+    RegisterUserRequest:
+      type: object
+      required: [display_name]
+      properties:
+        display_name:
+          $ref: "./components.yml#/components/schemas/UserDisplayName"
+    UpdateUserRequest:
+      $ref: "#/components/schemas/RegisterUserRequest"
+    PostBody:
+      type: string
+      format: user-free-input
+      minLength: 1
+      maxLength: 280
+      description: 投稿の本文
+    CreatePostRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          $ref: "#/components/schemas/PostBody"
+        display_period:
+          $ref: "./components.yml#/components/schemas/Period"

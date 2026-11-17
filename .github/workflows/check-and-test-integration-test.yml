@@ -1,0 +1,34 @@
+name: check and test (integration-test)
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-test-integration-test:
+    permissions:
+      contents: read
+      pull-requests: write
+    name: run check and test (integration-test)
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+      - working-directory: ./integration-test
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run check
+      - uses: reviewdog/action-eslint@3ee2a450da17e060b9dfa4bffd53976906c6b2b0 # v1.36.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          eslint_flags: "--config integration-test/eslint.config.mjs integration-test/src"
+          tool_name: 'eslint (integration-test)'
+          level: error
+          fail_level: warning
+        if: github.event_name == 'pull_request'

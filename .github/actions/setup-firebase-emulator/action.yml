@@ -1,0 +1,36 @@
+##
+## Firebase エミュレータをセットアップします。
+##
+## 以下の処理を行います:
+##   - Firebase エミュレータの起動
+##   - エミュレータの起動待機
+##
+## 出力:
+##   - firebase-pid: Firebase エミュレータのプロセスID
+##
+name: setup-firebase-emulator
+description: Start Firebase emulator and wait for it to be ready
+
+outputs:
+  firebase-pid:
+    description: Firebase emulator process ID
+    value: ${{ steps.start-firebase.outputs.pid }}
+
+runs:
+  using: composite
+  steps:
+    - name: Start Firebase emulator
+      id: start-firebase
+      shell: bash
+      run: |
+        mkdir -p logs
+        cd firebase
+        pnpm run dev > ../logs/firebase-emulator.log 2>&1 &
+        echo "pid=$!" >> $GITHUB_OUTPUT
+      env:
+        CI: true
+
+    - name: Wait for Firebase emulator
+      shell: bash
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:4000 > /dev/null 2>&1; do sleep 2; done'

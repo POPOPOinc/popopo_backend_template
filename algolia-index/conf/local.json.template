@@ -1,0 +1,6 @@
+{
+  "algolia": {
+    "appId": "YOUR_ALGOLIA_APP_ID",
+    "apiKey!": "YOUR_ALGOLIA_ADMIN_API_KEY"
+  }
+}

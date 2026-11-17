@@ -1,0 +1,48 @@
+name: check-simple
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        required: true
+        type: string
+      with-lint:
+        required: false
+        type: boolean
+        default: false
+      with-test:
+        required: false
+        type: boolean
+        default: false
+      with-build:
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+      - run: pnpm install
+      - run: |
+          pnpm run check
+        working-directory: ${{ inputs.working-directory }}
+      - if: ${{ inputs.with-lint }}
+        run: |
+          pnpm run lint
+        working-directory: ${{ inputs.working-directory }}
+      - if: ${{ inputs.with-test }}
+        run: |
+          pnpm run test
+        working-directory: ${{ inputs.working-directory }}
+      - if: ${{ inputs.with-build }}
+        run: |
+          pnpm run build
+        working-directory: ${{ inputs.working-directory }}

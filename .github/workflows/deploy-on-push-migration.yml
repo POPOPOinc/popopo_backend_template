@@ -1,0 +1,29 @@
+name: deploy-on-push (migration)
+
+on:
+  workflow_call:
+    inputs:
+      env:
+        type: string
+
+concurrency:
+  migration-${{ inputs.env }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    uses: ./.github/workflows/check-and-test-migration.yml
+
+  deploy:
+    permissions:
+      contents: read
+      id-token: write
+    needs: [check]
+    if: always() && needs.check.result == 'success'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      env: ${{ inputs.env }}
+      app: migration
+    secrets: inherit

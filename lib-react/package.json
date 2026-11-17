@@ -1,0 +1,23 @@
+{
+  "name": "lib-react",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./simple-pages": "./src/simple-pages/index.ts",
+    "./pages": "./src/pages/index.ts"
+  },
+  "scripts": {
+    "check": "tsc --build tsconfig.json",
+    "lint": "eslint src"
+  },
+  "peerDependencies": {
+    "react": "~19.3.1",
+    "react-dom": "~19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "~19.3.0",
+    "typescript": "^6.0.3"
+  }
+}

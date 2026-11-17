@@ -1,0 +1,23 @@
+##
+## Firebase エミュレータに初期データをセットアップします。
+##
+## 以下の処理を行います:
+##   - migration を使用して初期データを作成
+##
+## 前提条件:
+##   - Firebase エミュレータが起動していること
+##
+name: setup-initial-data
+description: Setup initial data in Firebase emulator using migration
+
+runs:
+  using: composite
+  steps:
+    - name: Setup initial data
+      shell: bash
+      run: |
+        cd migration
+        pnpm run apply:emulator
+      env:
+        FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080'
+        FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199'

@@ -1,0 +1,45 @@
+name: check and test (schema)
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-test-schema:
+    name: run check and test (schema)
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+      - name: workspace 依存の禁止チェック
+        run: |
+          if grep -q '"workspace:\*"' schema/package.json; then
+            echo "::error::schema/package.json に workspace:* 依存が含まれています。"
+            echo "::error::schema は配布パッケージとして外部リポジトリに同期されるため、workspace 依存は使用できません。"
+            echo "::error::必要な型やユーティリティは schema/src/lib/ にインライン化してください。"
+            grep "workspace:" schema/package.json
+            exit 1
+          fi
+      - run: pnpm install
+      - run: |
+          pnpm run check
+          pnpm run lint
+          pnpm run test
+        working-directory: ./schema
+      - uses: reviewdog/action-eslint@3ee2a450da17e060b9dfa4bffd53976906c6b2b0 # v1.36.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          eslint_flags: "--config schema/eslint.config.mjs schema/src"
+          tool_name: 'eslint (schema)'
+          level: error
+          fail_level: warning
+        if: github.event_name == 'pull_request'

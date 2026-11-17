@@ -1,0 +1,123 @@
+name: slack-backend-notification
+description: バックエンドデプロイのSlack通知
+
+inputs:
+  env:
+    required: true
+    description: デプロイ先の環境
+  message_type:
+    required: true
+    description: 通知のタイプ
+    # 取りうる値: deploy_start, deploy_complete, ci_complete
+  result:
+    required: false
+    description: 結果 (deploy_complete, ci_completeの場合)
+    # 取りうる値: success, failure, cancelled, skipped
+  slackToken:
+    required: true
+    description: SlackのBot Token
+
+runs:
+  using: composite
+  steps:
+    - name: check-environment
+      id: check-environment
+      shell: bash
+      env:
+        SLACK_TOKEN: ${{ inputs.slackToken }}
+        TARGET_ENV: ${{ inputs.env }}
+      run: |
+        if [[ -z "${SLACK_TOKEN}" || -z "${SLACK_DEPLOY_CHANNEL_ID:-}" ]]; then
+          echo should_notify=false >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        case "${TARGET_ENV}" in
+          stage|prod)
+            echo should_notify=true >> "$GITHUB_OUTPUT"
+            ;;
+          *)
+            echo should_notify=false >> "$GITHUB_OUTPUT"
+            ;;
+        esac
+    
+
+    - name: generate-message
+      if: steps.check-environment.outputs.should_notify == 'true'
+      id: generate-message
+      shell: bash
+      env:
+        MESSAGE_TYPE: ${{ inputs.message_type }}
+        TARGET_ENV: ${{ inputs.env }}
+        RESULT: ${{ inputs.result }}
+      run: |
+        case "${MESSAGE_TYPE}" in
+          deploy_start)
+            echo "message=${TARGET_ENV} への backend デプロイを開始します。" >> "$GITHUB_OUTPUT"
+            echo "color=good" >> "$GITHUB_OUTPUT"
+            ;;
+          deploy_complete)
+            case "${RESULT}" in
+              success)
+                echo "message=<!here> ${TARGET_ENV} への backend デプロイが完了しました。(成功)" >> "$GITHUB_OUTPUT"
+                echo "color=good" >> "$GITHUB_OUTPUT"
+                ;;
+              failure)
+                echo "message=<!here> ${TARGET_ENV} への backend デプロイが完了しました。(失敗)" >> "$GITHUB_OUTPUT"
+                echo "color=danger" >> "$GITHUB_OUTPUT"
+                ;;
+              cancelled)
+                echo "message=<!here> ${TARGET_ENV} への backend デプロイがキャンセルされました。" >> "$GITHUB_OUTPUT"
+                echo "color=warning" >> "$GITHUB_OUTPUT"
+                ;;
+              skipped)
+                echo "message=<!here> ${TARGET_ENV} への backend デプロイがスキップされました。" >> "$GITHUB_OUTPUT"
+                echo "color=#439FE0" >> "$GITHUB_OUTPUT"
+                ;;
+              *)
+                echo "message=<!here> ${TARGET_ENV} への backend デプロイが完了しました。(不明な状態: ${RESULT})" >> "$GITHUB_OUTPUT"
+                echo "color=warning" >> "$GITHUB_OUTPUT"
+                ;;
+            esac
+            ;;
+          ci_complete)
+            case "${RESULT}" in
+              success)
+                echo "message=<!here> ${TARGET_ENV} への CI が完了しました。(成功)" >> "$GITHUB_OUTPUT"
+                echo "color=good" >> "$GITHUB_OUTPUT"
+                ;;
+              failure)
+                echo "message=<!here> ${TARGET_ENV} への CI が完了しました。(失敗)" >> "$GITHUB_OUTPUT"
+                echo "color=danger" >> "$GITHUB_OUTPUT"
+                ;;
+              cancelled)
+                echo "message=<!here> ${TARGET_ENV} への CI がキャンセルされました。" >> "$GITHUB_OUTPUT"
+                echo "color=warning" >> "$GITHUB_OUTPUT"
+                ;;
+              skipped)
+                echo "message=<!here> ${TARGET_ENV} への CI がスキップされました。" >> "$GITHUB_OUTPUT"
+                echo "color=#439FE0" >> "$GITHUB_OUTPUT"
+                ;;
+              *)
+                echo "message=<!here> ${TARGET_ENV} への CI が完了しました。(不明な状態: ${RESULT})" >> "$GITHUB_OUTPUT"
+                echo "color=warning" >> "$GITHUB_OUTPUT"
+                ;;
+            esac
+            ;;
+        esac
+    
+    - name: send-notification
+      if: steps.check-environment.outputs.should_notify == 'true'
+      uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+      with:
+        method: chat.postMessage
+        token: ${{ inputs.slackToken }}
+        payload: |
+          {
+            "text": "${{ steps.generate-message.outputs.message }}",
+            "channel": "${{ env.SLACK_DEPLOY_CHANNEL_ID }}",
+            "attachments": [{
+              "color": "${{ steps.generate-message.outputs.color }}",
+              "text": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run #${{ github.run_id }}>",
+              "footer": "Author <${{ github.server_url }}/${{ github.event.sender.login }}|@${{ github.event.sender.login }}>"
+            }]
+          }

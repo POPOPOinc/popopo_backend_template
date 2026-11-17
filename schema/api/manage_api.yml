@@ -1,0 +1,137 @@
+openapi: 3.0.3
+info:
+  title: Manage API
+  version: 1.0.0
+  description: |
+    管理画面（manage）が利用する API。admins コレクションに登録された管理者のみ利用できる。
+    一覧・詳細などの読み取りは manage が Firestore を直接読むため、ここには書き込み・操作系と、
+    Firestore に存在しない情報（Firebase Auth のアカウント情報など）の取得のみを定義する。
+security:
+  - FirebaseIdToken: []
+paths:
+  /api/v1/manage/users/{user_id}:
+    put:
+      operationId: manageUpdateUser
+      summary: ユーザー情報を更新する
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManageUpdateUserRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "./components.yml#/components/schemas/OKResponse"
+        default:
+          $ref: "./components.yml#/components/responses/Error"
+  /api/v1/manage/users/{user_id}/auth:
+    get:
+      operationId: manageGetUserAuth
+      summary: ユーザーの Firebase Auth アカウント情報を取得する
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAuthResponse"
+        default:
+          $ref: "./components.yml#/components/responses/Error"
+  /api/v1/manage/posts/{post_id}:
+    put:
+      operationId: manageUpdatePost
+      summary: 投稿の表示期間を変更する
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManageUpdatePostRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "./components.yml#/components/schemas/OKResponse"
+        default:
+          $ref: "./components.yml#/components/responses/Error"
+    delete:
+      operationId: manageDeletePost
+      summary: 投稿を削除する
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "./components.yml#/components/schemas/OKResponse"
+        default:
+          $ref: "./components.yml#/components/responses/Error"
+components:
+  securitySchemes:
+    FirebaseIdToken:
+      $ref: "./components.yml#/components/securitySchemes/FirebaseIdToken"
+  schemas:
+    ManageUpdatePostRequest:
+      type: object
+      required: [display_period]
+      properties:
+        display_period:
+          $ref: "./components.yml#/components/schemas/Period"
+    ManageUpdateUserRequest:
+      type: object
+      required: [display_name, status]
+      properties:
+        display_name:
+          $ref: "./components.yml#/components/schemas/UserDisplayName"
+        status:
+          $ref: "./components.yml#/components/schemas/UserStatus"
+    UserAuthResponse:
+      type: object
+      required: [uid, disabled, provider_ids, created_at]
+      properties:
+        uid:
+          type: string
+        email:
+          type: string
+        disabled:
+          type: boolean
+        provider_ids:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          description: Firebase Auth のアカウント作成日時（UTC 文字列）
+        last_sign_in_at:
+          type: string
+          description: 最終ログイン日時（UTC 文字列）

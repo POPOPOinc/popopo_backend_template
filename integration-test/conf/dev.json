@@ -1,0 +1,11 @@
+{
+  "baseUrl": "https://api.dev.example.com",
+  "firebase": {
+    "projectId": "your-project-dev",
+    "apiKey": "YOUR_FIREBASE_WEB_API_KEY",
+    "storageBucket": "your-project-dev.firebasestorage.app"
+  },
+  "ops": {
+    "tenantId": "YOUR_OPS_TENANT_ID"
+  }
+}

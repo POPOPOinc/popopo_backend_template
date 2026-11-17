@@ -1,0 +1,171 @@
+{
+  "functions": {
+    "source": "functions",
+    "codebase": "web",
+    "ignore": [
+      "node_modules",
+      ".cache",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      "src/**"
+    ]
+  },
+  "hosting": [
+    {
+      "site": "your-project-local-web",
+      "public": "./dist/localhost",
+      "ignore": [
+        "**/node_modules/**"
+      ],
+      "headers": [
+        {
+          "source": "/.well-known/**",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=3600"
+            }
+          ]
+        }
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "function": "renderHTML",
+          "region": "asia-northeast1"
+        }
+      ]
+    },
+    {
+      "site": "your-project-beta-web",
+      "public": "./dist/beta",
+      "ignore": [
+        "**/node_modules/**"
+      ],
+      "headers": [
+        {
+          "source": "/.well-known/**",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=3600"
+            }
+          ]
+        }
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "function": "renderHTML",
+          "region": "asia-northeast1"
+        }
+      ]
+    },
+    {
+      "site": "your-project-dev-web",
+      "public": "./dist/dev",
+      "ignore": [
+        "**/node_modules/**"
+      ],
+      "headers": [
+        {
+          "source": "/.well-known/**",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=3600"
+            }
+          ]
+        }
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "function": "renderHTML",
+          "region": "asia-northeast1"
+        }
+      ]
+    },
+    {
+      "site": "your-project-stage-web",
+      "public": "./dist/stage",
+      "ignore": [
+        "**/node_modules/**"
+      ],
+      "headers": [
+        {
+          "source": "/.well-known/**",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=3600"
+            }
+          ]
+        }
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "function": "renderHTML",
+          "region": "asia-northeast1"
+        }
+      ]
+    },
+    {
+      "site": "your-project-prod-web",
+      "public": "./dist/prod",
+      "ignore": [
+        "**/node_modules/**"
+      ],
+      "headers": [
+        {
+          "source": "/.well-known/**",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=3600"
+            }
+          ]
+        }
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "function": "renderHTML",
+          "region": "asia-northeast1"
+        }
+      ]
+    }
+  ],
+  "emulators": {
+    "functions": {
+      "host": "127.0.0.1",
+      "port": 5003
+    },
+    "hosting": {
+      "host": "127.0.0.1",
+      "port": 5002
+    },
+    "singleProjectMode": true
+  }
+}

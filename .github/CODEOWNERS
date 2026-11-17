@@ -1,0 +1,5 @@
+# レビュー必須の担当者を設定する。テンプレートを利用する際に自身の GitHub ユーザー / チームへ書き換えること。
+# https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# * @your-org/backend
+# /.github/ @your-org/infra

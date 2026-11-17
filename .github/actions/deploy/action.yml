@@ -1,0 +1,39 @@
+##
+## `inputs.app` で示されるアプリをデプロイします。
+##
+##  1. `gcp-login` で env に対応した GCP プロジェクトにログインする（`$GCP_PROJECT` が設定される）
+##  2. `infra/deploy/{inputs.app}/deploy.sh` を実行
+##     - この時 `env=beta` のようにデプロイ先が環境変数として渡される
+##
+## 予め `setup-sops` を済ませておく必要があります。
+## `deploy.sh` の実行環境では GCP にログイン済みなので gcloud, firebase が利用できます。
+##
+name: deploy
+description: deploy an app
+
+inputs:
+  app:
+    required: true
+    description: app to deploy
+  env:
+    required: true
+    description: env to deploy
+
+runs:
+  using: composite
+  steps:
+  - uses: ./.github/actions/gcp-login
+    with:
+      env: ${{ inputs.env }}
+
+  - uses: ./.github/actions/setup-node
+
+  - shell: bash
+    run: pnpm install --frozen-lockfile
+
+  - shell: bash
+    env:
+      TARGET_ENV: ${{ inputs.env }}
+      DEPLOY_APP: ${{ inputs.app }}
+    run: |
+      env=${TARGET_ENV} ./infra/deploy/${DEPLOY_APP}/deploy.sh

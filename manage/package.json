@@ -1,0 +1,39 @@
+{
+  "name": "manage",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite serve --mode localhost",
+    "build": "vite build --mode localhost",
+    "check": "tsc --noEmit",
+    "lint": "eslint src",
+    "deploy:beta": "pnpm run build:mode beta && firebase deploy --only hosting:your-project-beta-manage --project ${GCP_PROJECT:-your-project-beta}",
+    "deploy:dev": "pnpm run build:mode dev && firebase deploy --only hosting:your-project-dev-manage --project ${GCP_PROJECT:-your-project-dev}",
+    "deploy:stage": "pnpm run build:mode stage && firebase deploy --only hosting:your-project-stage-manage --project ${GCP_PROJECT:-your-project-stage}",
+    "deploy:prod": "pnpm run build:mode prod && firebase deploy --only hosting:your-project-prod-manage --project ${GCP_PROJECT:-your-project-prod}",
+    "build:mode": "vite build --mode"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "~7.0.1",
+    "bootstrap": "^5.3.8",
+    "firebase": "^13.1.0",
+    "lib-common": "workspace:*",
+    "lib-front": "workspace:*",
+    "react": "~19.3.1",
+    "react-bootstrap": "~2.10.10",
+    "react-dom": "~19.3.1",
+    "react-hook-form": "~7.91.0",
+    "react-router": "~8.5.1",
+    "schema": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "~19.3.0",
+    "@types/react-dom": "~19.3.0",
+    "@vitejs/plugin-react": "~6.1.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.5"
+  }
+}

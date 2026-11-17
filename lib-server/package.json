@@ -1,0 +1,29 @@
+{
+  "name": "lib-server",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "check": "tsc --build tsconfig.json",
+    "lint": "eslint .",
+    "test": "jest"
+  },
+  "dependencies": {
+    "algoliasearch": "^5.61.0",
+    "lib-common": "workspace:*",
+    "schema": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.5.2",
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.19.2",
+    "jest": "^30.5.2",
+    "json-colorizer": "^3.0.1",
+    "ts-jest": "^29.4.15",
+    "typescript": "^6.0.3"
+  }
+}

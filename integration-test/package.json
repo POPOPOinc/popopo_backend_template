@@ -1,0 +1,33 @@
+{
+  "name": "integration-test",
+  "private": true,
+  "scripts": {
+    "check": "tsc --build tsconfig.json",
+    "lint": "eslint src",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --config='jest.config.ts' --colors --detectOpenHandles",
+    "test:emulator": "cross-env NODE_OPTIONS=--experimental-vm-modules CONFIG_FILE=conf/emulator.json FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099' FIRESTORE_EMULATOR_HOST='127.0.0.1:8080' jest --runInBand --config='jest.config.ts' --colors --forceExit",
+    "test:local": "firebase emulators:exec --config ../firebase/firebase.json --project demo-template --only firestore,auth,storage \"./scripts/run-local-emulator.sh\"",
+    "test:beta": "cross-env CONFIG_FILE=conf/beta.json pnpm test",
+    "test:dev": "cross-env CONFIG_FILE=conf/dev.json pnpm test",
+    "test:stage": "cross-env CONFIG_FILE=conf/stage.json pnpm test",
+    "test:prod": "cross-env CONFIG_FILE=conf/prod.json pnpm test"
+  },
+  "dependencies": {
+    "firebase": "^13.1.0",
+    "firebase-admin": "^14.5.0",
+    "lib-front": "workspace:*",
+    "react": "~19.3.1",
+    "schema": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.5.2",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.19.2",
+    "cross-env": "^10.1.0",
+    "firebase-tools": "^15.34.2",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.15",
+    "typescript": "^6.0.3"
+  }
+}

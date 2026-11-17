@@ -1,0 +1,47 @@
+openapi: 3.0.3
+info:
+  title: Debug API
+  description: |-
+    本番以外の環境でだけ mount されるデバッグ用 API（app-server の debugApp）。
+  version: 0.1.0
+security:
+  - FirebaseIdToken: []
+paths:
+  /api/v1/debug/error:
+    post:
+      summary: 例外を投げて、エラー時のログ・アラートを確認する
+      operationId: debugError
+      responses:
+        default:
+          $ref: "./components.yml#/components/responses/Error"
+  /api/v1/debug/users/me/status:
+    put:
+      summary: 自分の status を変更する（管理画面を使わずに状態を作るため）
+      operationId: debugUpdateMyStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DebugUpdateMyStatusRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "./components.yml#/components/schemas/OKResponse"
+        default:
+          $ref: "./components.yml#/components/responses/Error"
+components:
+  securitySchemes:
+    FirebaseIdToken:
+      type: http
+      scheme: bearer
+  schemas:
+    DebugUpdateMyStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "./components.yml#/components/schemas/UserStatus"

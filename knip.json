@@ -1,0 +1,64 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": [
+    "@typescript-eslint/eslint-plugin",
+    "eslint-plugin-react",
+    "eslint-plugin-react-hooks",
+    "typescript-eslint",
+    "ts-node"
+  ],
+  "rules": {
+    "duplicates": "warn"
+  },
+  "ignoreIssues": {
+    "schema/src/api/*/client.gen.ts": [
+      "types"
+    ],
+    "schema/src/api/*/zod.gen.ts": [
+      "duplicates"
+    ]
+  },
+  "workspaces": {
+    ".": {},
+    "app-server": {
+      "ignoreDependencies": [
+        "firebase-tools"
+      ]
+    },
+    "app-server/functions": {
+      "ignoreDependencies": [
+        "firebase-admin",
+        "firebase-functions"
+      ]
+    },
+    "manage": {
+      "entry": [
+        "env/*/config.ts"
+      ]
+    },
+    "web": {
+      "entry": [
+        "env/*/config.ts",
+        "scripts/*.cjs"
+      ]
+    },
+    "migration": {
+      "entry": [
+        "migrations/**/*.ts",
+        "cjs-shim.ts"
+      ]
+    },
+    "algolia-index": {
+      "entry": [
+        "cjs-shim.ts"
+      ]
+    },
+    "integration-test": {
+      "ignoreBinaries": [
+        "tsx"
+      ]
+    },
+    "*": {}
+  }
+}

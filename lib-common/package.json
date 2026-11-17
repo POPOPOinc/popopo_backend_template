@@ -1,0 +1,20 @@
+{
+  "name": "lib-common",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "check": "npx tsc --build tsconfig.json",
+    "lint": "eslint .",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@types/node": "^24.19.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.15",
+    "typescript": "^6.0.3"
+  }
+}

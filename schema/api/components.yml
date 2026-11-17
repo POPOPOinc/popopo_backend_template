@@ -1,0 +1,69 @@
+openapi: 3.0.3
+info:
+  title: Shared components
+  version: 1.0.0
+paths: {}
+components:
+  securitySchemes:
+    FirebaseIdToken:
+      type: http
+      scheme: bearer
+      description: Firebase Authentication の ID トークン
+  schemas:
+    UserDisplayName:
+      type: string
+      format: user-free-input
+      minLength: 1
+      maxLength: 32
+      description: 表示名
+    OKResponse:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: boolean
+          enum: [true]
+    IDResponse:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+    ErrorResponse:
+      type: object
+      required: [kind, message]
+      properties:
+        kind:
+          type: string
+          description: エラーの種別。schema/src/api/error.ts の Errors のキー（UPPER_SNAKE）で、一覧と details の形は document の「API Error」ページにある
+          example: NOT_FOUND
+        message:
+          type: string
+        details:
+          type: object
+          description: エラーの詳細。kind に応じて内容が異なる
+          additionalProperties: true
+        debug:
+          description: デバッグ情報（prod では返さない）
+    UserStatus:
+      type: string
+      enum: [active, banned]
+    Period:
+      type: object
+      description: 期間。end_at が null の場合は無期限
+      required: [start_at, end_at]
+      properties:
+        start_at:
+          type: integer
+          description: 開始日時（UNIX ミリ秒）
+        end_at:
+          type: integer
+          nullable: true
+          description: 終了日時（UNIX ミリ秒）。null の場合は無期限
+  responses:
+    Error:
+      description: エラー
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"

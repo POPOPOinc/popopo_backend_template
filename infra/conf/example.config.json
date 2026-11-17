@@ -1,0 +1,22 @@
+{
+  "env": "beta",
+  "firebase": {
+    "projectId": "your-project-beta",
+    "storageBucket": "your-project-beta.firebasestorage.app",
+    "apiKey": "YOUR_FIREBASE_WEB_API_KEY"
+  },
+  "ops": {
+    "tenantId": "YOUR_OPS_TENANT_ID"
+  },
+  "web": {
+    "baseURL": "https://beta.example.com/",
+    "allowedOrigins": [
+      "https://beta.example.com",
+      "https://manage.beta.example.com"
+    ]
+  },
+  "algolia": {
+    "appId": "YOUR_ALGOLIA_APP_ID",
+    "apiKey!": "YOUR_ALGOLIA_ADMIN_API_KEY"
+  }
+}

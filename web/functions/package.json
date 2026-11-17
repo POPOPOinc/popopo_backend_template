@@ -1,0 +1,27 @@
+{
+  "name": "web-functions",
+  "private": true,
+  "main": "out/index.js",
+  "engines": {
+    "node": "24"
+  },
+  "scripts": {
+    "build": "node ../scripts/generate-css-paths.cjs localhost --if-missing && esbuild --platform=node --target=node24 --format=cjs --bundle --sourcemap --keep-names --external:firebase-admin --external:firebase-functions --jsx=automatic --outfile=out/index.js src/index.ts",
+    "watch": "esbuild --platform=node --target=node24 --format=cjs --bundle --sourcemap --keep-names --external:firebase-admin --external:firebase-functions --jsx=automatic --outfile=out/index.js --watch src/index.ts",
+    "check": "node ../scripts/generate-css-paths.cjs localhost --if-missing && tsc"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.3.0",
+    "@types/react-dom": "~19.3.0",
+    "esbuild": "^0.28.2",
+    "lib-react": "workspace:*",
+    "react": "~19.3.1",
+    "react-dom": "~19.3.1",
+    "schema": "workspace:*",
+    "typescript": "^6.0.3"
+  }
+}

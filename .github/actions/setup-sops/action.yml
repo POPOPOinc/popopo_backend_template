@@ -1,0 +1,33 @@
+##
+## SOPS のインストールと復元用のキーの配置を行います。
+##
+## SOPS のバージョンは `SOPS_VERSION` で固定し、チェックサムを検証してからインストールします。
+## infra/lint (sops-version) は infra/conf/*.encrypted.json の sops バージョンがここと一致するか検証します。
+##
+name: setup-sops
+description: Install SOPS and place a secret key for it.
+
+inputs:
+  key:
+    required: true
+    description: A secret key to decrypt config files. (base64 encoded age key file)
+
+runs:
+  using: composite
+  steps:
+  - shell: bash
+    name: Install SOPS
+    env:
+      SOPS_VERSION: 3.13.3
+      SOPS_SHA256: e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b
+    run: |
+      curl -fsSL -o /tmp/sops "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64"
+      echo "${SOPS_SHA256}  /tmp/sops" | sha256sum -c -
+      sudo install /tmp/sops /usr/local/bin/sops
+
+  # https://github.com/getsops/sops#encrypting-using-age
+  - shell: bash
+    env:
+      SOPS_AGE_KEY_B64: ${{ inputs.key }}
+    run: |
+      echo "${SOPS_AGE_KEY_B64}" | base64 --decode | install -D /dev/stdin "$XDG_CONFIG_HOME/sops/age/keys.txt"

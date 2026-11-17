@@ -1,0 +1,36 @@
+name: check and test (migration)
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-test-migration:
+    name: run check and test (migration)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+      - working-directory: ./firebase
+        name: run firebase emulator
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run dev &
+      - working-directory: ./migration
+        name: check migrations
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run check
+          pnpm run build
+      - working-directory: ./migration
+        name: apply migrations
+        run: |
+          until curl -m 1 -s http://0.0.0.0:4000/ > /dev/null; do
+            echo "Waiting for Firebase Emulator to be ready"
+            sleep 1
+          done
+          pnpm run apply:emulator

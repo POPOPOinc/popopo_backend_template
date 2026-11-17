@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "types": ["node"],
+    "rootDir": ".",
+    "noEmit": true,
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "target": "ES2022",
+    "strict": true,
+    "outDir": "build",
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "alwaysStrict": true,
+    "jsx": "react-jsx",
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
+    "typeRoots": [
+      "node_modules/@types"
+    ],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts"
+  ]
+}

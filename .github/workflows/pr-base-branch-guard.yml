@@ -1,0 +1,102 @@
+name: PR base branch guard
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check-base-branch:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Check PR base branch
+        id: check
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "PR #${PR_NUMBER}: ${HEAD} -> ${BASE}"
+
+          # リリースフローで許可されるパターン
+          #   beta  -> dev
+          #   dev   -> stage
+          #   stage -> prod
+          # それ以外の feature branch は beta のみ許可
+          case "${BASE}" in
+            beta)
+              echo "OK: base branch is beta"
+              ;;
+            dev)
+              if [ "${HEAD}" = "beta" ]; then
+                echo "OK: release flow beta -> dev"
+              else
+                echo "comment_body=PR #${PR_NUMBER} の base branch が **dev** になっています。通常、dev へのマージはリリースフロー (beta -> dev) で行いますので、環境の差異が生まれないように、マージには注意してください。緊急リリースなど、やむを得ない状況で利用してください。" >> "$GITHUB_OUTPUT"
+                echo "violation=true" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+            stage)
+              if [ "${HEAD}" = "dev" ]; then
+                echo "OK: release flow dev -> stage"
+              else
+                echo "comment_body=PR #${PR_NUMBER} の base branch が **stage** になっています。通常、stage へのマージはリリースフロー (dev -> stage) で行いますので、環境の差異が生まれないように、マージには注意してください。緊急リリースなど、やむを得ない状況で利用してください。" >> "$GITHUB_OUTPUT"
+                echo "violation=true" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+            prod)
+              if [ "${HEAD}" = "stage" ]; then
+                echo "OK: release flow stage -> prod"
+              else
+                echo "comment_body=PR #${PR_NUMBER} の base branch が **prod** になっています。通常、prod へのマージはリリースフロー (stage -> prod) で行いますので、環境の差異が生まれないように、マージには注意してください。緊急リリースなど、やむを得ない状況で利用してください。" >> "$GITHUB_OUTPUT"
+                echo "violation=true" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+            *)
+              echo "OK: base branch ${BASE} is not a protected environment branch"
+              ;;
+          esac
+
+      - name: Post warning comment on PR
+        if: steps.check.outputs.violation == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          COMMENT_BODY: ${{ steps.check.outputs.comment_body }}
+        with:
+          script: |
+            const body = "⚠️ **Base Branch Guard**\n\n" + process.env.COMMENT_BODY;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Base Branch Guard')
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail if violation
+        if: steps.check.outputs.violation == 'true'
+        env:
+          COMMENT_BODY: ${{ steps.check.outputs.comment_body }}
+        run: |
+          echo "::error::${COMMENT_BODY}"
+          exit 1

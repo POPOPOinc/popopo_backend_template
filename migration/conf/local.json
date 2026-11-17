@@ -1,0 +1,6 @@
+{
+  "env": "local",
+  "ops": {
+    "tenantId": "ops-local"
+  }
+}

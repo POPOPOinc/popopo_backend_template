@@ -1,0 +1,96 @@
+name: firestore-update
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        type: choice
+        description: "target environment"
+        options: [beta, dev, stage, prod]
+
+  workflow_call:
+    inputs:
+      env:
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  SLACK_DEPLOY_CHANNEL_ID: ${{ vars.SLACK_DEPLOY_CHANNEL_ID }}
+
+jobs:
+  update:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-sops
+        with:
+          key: ${{ (inputs.env == 'prod' && secrets.SOPS_KEY_PROD) || (inputs.env == 'stage' && secrets.SOPS_KEY_STAGE) || (inputs.env == 'dev' && secrets.SOPS_KEY_DEV) || secrets.SOPS_KEY_BETA }}
+
+      - uses: ./.github/actions/gcp-login
+        with:
+          env: ${{ inputs.env }}
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Install dependencies
+        run: cd ./firebase && pnpm install
+
+      - name: Deploy Firestore rules and indexes
+        working-directory: ./firebase
+        env:
+          TARGET_ENV: ${{ inputs.env }}
+        run: |
+          if [[ "${TARGET_ENV}" == "beta" ]]; then
+            npx firebase deploy --only firestore --project=$GCP_PROJECT
+          else
+            npx firebase deploy --force --only firestore --project=$GCP_PROJECT
+          fi
+
+      - name: Deploy storage rules
+        working-directory: ./firebase
+        run: npx firebase deploy --force --only storage --project=$GCP_PROJECT
+
+      - name: Wait for Firestore index builds to complete
+        run: |
+          echo "Checking for in-progress Firestore index operations..."
+          starttime=$(date +"%s")
+          # Wait up to 30 minutes (1800 seconds)
+          while [[ $(( $(date +"%s") - $starttime )) -le 1800 ]]; do
+            response=$(gcloud firestore operations list \
+              --project=$GCP_PROJECT \
+              --format=json)
+            # Filter for in-progress index operations using jq
+            index_count=$(echo "$response" | jq '[.[] | select(.done != true and .metadata["@type"] == "type.googleapis.com/google.firestore.admin.v1.IndexOperationMetadata")] | length')
+            if [ "$index_count" == "0" ] || [ -z "$index_count" ]; then
+              echo "All Firestore indexes are ready."
+              exit 0
+            fi
+            echo "[$(date +"%Y-%m-%d %H:%M:%S")] $index_count index(es) still building, waiting 30 seconds..."
+            echo "$response" | jq -r '[.[] | select(.done != true and .metadata["@type"] == "type.googleapis.com/google.firestore.admin.v1.IndexOperationMetadata")] | .[].metadata.index' 2>/dev/null || true
+            sleep 30
+          done
+          echo "Timed out waiting for Firestore indexes to build."
+          exit 1
+  notify:
+    runs-on: ubuntu-latest
+    needs: [update]
+    if: always()
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/slack-job-result-notification
+        if: always()
+        with:
+          env: ${{ inputs.env }}
+          refName: ${{ github.ref_name }}
+          applicationName: 'firebase'
+          result: ${{ needs.update.result }}
+          slackToken: ${{ secrets.SLACK_BOT_TOKEN }}

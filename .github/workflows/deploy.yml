@@ -1,0 +1,65 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        type: choice
+        description: "target environment"
+        options: [beta, dev, stage, prod]
+      app:
+        type: choice
+        description: "target application"
+        options:
+        - app-server
+        - document
+        - migration
+        - algolia-index
+
+  workflow_call:
+    inputs:
+      env:
+        type: string
+      app:
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  SLACK_DEPLOY_CHANNEL_ID: ${{ vars.SLACK_DEPLOY_CHANNEL_ID }}
+
+jobs:
+  deploy:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-sops
+        with:
+          key: ${{ (inputs.env == 'prod' && secrets.SOPS_KEY_PROD) || (inputs.env == 'stage' && secrets.SOPS_KEY_STAGE) || (inputs.env == 'dev' && secrets.SOPS_KEY_DEV) || secrets.SOPS_KEY_BETA }}
+
+      - uses: ./.github/actions/deploy
+        with:
+          app: ${{ inputs.app }}
+          env: ${{ inputs.env }}
+  notify:
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always()
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/slack-job-result-notification
+        with:
+          env: ${{ inputs.env }}
+          refName: ${{ github.ref_name }}
+          applicationName: ${{ inputs.app }}
+          result: ${{ needs.deploy.result }}
+          slackToken: ${{ secrets.SLACK_BOT_TOKEN }}

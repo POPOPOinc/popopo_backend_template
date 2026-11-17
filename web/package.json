@@ -1,0 +1,43 @@
+{
+  "name": "web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build --mode localhost",
+    "check": "tsc --noEmit",
+    "lint": "eslint src && eslint -c functions/eslint.config.mjs functions/src",
+    "generate:well-known": "node scripts/generate-well-known.cjs",
+    "generate:assetlinks": "node scripts/generate-assetlinks.cjs",
+    "prepare:ssr": "node scripts/prepare-ssr.cjs",
+    "dev:emulator": "cross-env FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 firebase emulators:start --only functions,hosting --project demo-template",
+    "dev:functions": "pnpm -C functions run watch",
+    "dev": "pnpm run build:mode localhost && pnpm run generate:well-known localhost && pnpm run generate:assetlinks localhost && pnpm run prepare:ssr localhost && pnpm -C functions run build && npm-run-all --parallel dev:emulator dev:functions",
+    "dev:hot": "vite serve --mode localhost",
+    "deploy:beta": "pnpm run build:mode beta && pnpm run generate:well-known beta && pnpm run generate:assetlinks beta && pnpm run prepare:ssr beta && pnpm -C functions run build && firebase deploy --only functions:web:renderHTML,hosting:your-project-beta-web --project ${GCP_PROJECT:-your-project-beta}",
+    "deploy:dev": "pnpm run build:mode dev && pnpm run generate:well-known dev && pnpm run generate:assetlinks dev && pnpm run prepare:ssr dev && pnpm -C functions run build && firebase deploy --only functions:web:renderHTML,hosting:your-project-dev-web --project ${GCP_PROJECT:-your-project-dev}",
+    "deploy:stage": "pnpm run build:mode stage && pnpm run generate:well-known stage && pnpm run generate:assetlinks stage && pnpm run prepare:ssr stage && pnpm -C functions run build && firebase deploy --only functions:web:renderHTML,hosting:your-project-stage-web --project ${GCP_PROJECT:-your-project-stage}",
+    "deploy:prod": "pnpm run build:mode prod && pnpm run generate:well-known prod && pnpm run generate:assetlinks prod && pnpm run prepare:ssr prod && pnpm -C functions run build && firebase deploy --only functions:web:renderHTML,hosting:your-project-prod-web --project ${GCP_PROJECT:-your-project-prod}",
+    "build:mode": "vite build --mode"
+  },
+  "dependencies": {
+    "firebase": "^13.1.0",
+    "lib-front": "workspace:*",
+    "lib-react": "workspace:*",
+    "react": "~19.3.1",
+    "react-dom": "~19.3.1",
+    "react-router": "~8.5.1",
+    "schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "~19.3.0",
+    "@types/react-dom": "~19.3.0",
+    "@vitejs/plugin-react": "~6.1.2",
+    "cross-env": "^10.1.0",
+    "firebase-tools": "^15.34.2",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.5"
+  }
+}

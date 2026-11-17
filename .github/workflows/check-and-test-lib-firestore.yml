@@ -1,0 +1,35 @@
+name: check-simple
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+      - run: pnpm install
+      - run: |
+          pnpm run check
+        working-directory: ./lib-firestore
+      - uses: reviewdog/action-eslint@3ee2a450da17e060b9dfa4bffd53976906c6b2b0 # v1.36.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          eslint_flags: "--config lib-firestore/eslint.config.mjs lib-firestore/src"
+          tool_name: 'eslint (lib-firestore)'
+          level: error
+          fail_level: warning
+        if: github.event_name == 'pull_request'
+      - run: |
+          pnpm run test
+        working-directory: ./lib-firestore

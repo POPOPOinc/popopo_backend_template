@@ -1,0 +1,51 @@
+name: firebase-extension-deploy
+
+# firebase/extensions/*.env（Firestore → BigQuery Export など）を Firebase Extensions としてデプロイする
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        type: choice
+        description: "target environment"
+        options: [beta, dev, stage, prod]
+
+  workflow_call:
+    inputs:
+      env:
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-sops
+        with:
+          key: ${{ (inputs.env == 'prod' && secrets.SOPS_KEY_PROD) || (inputs.env == 'stage' && secrets.SOPS_KEY_STAGE) || (inputs.env == 'dev' && secrets.SOPS_KEY_DEV) || secrets.SOPS_KEY_BETA }}
+
+      - uses: ./.github/actions/gcp-login
+        with:
+          env: ${{ inputs.env }}
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Install dependencies
+        run: cd ./firebase && pnpm install
+
+      - name: Deploy extensions
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+        with:
+          timeout_minutes: 30
+          max_attempts: 2
+          retry_on: error
+          command: |
+            cd ./firebase
+            npx firebase deploy --force --only extensions --project=$GCP_PROJECT

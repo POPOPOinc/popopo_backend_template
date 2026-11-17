@@ -1,0 +1,36 @@
+{
+  "hosting": [
+    {
+      "site": "your-project-beta-document",
+      "public": "./out",
+      "ignore": [
+        "**/.*",
+        "**/node_modules/**"
+      ]
+    },
+    {
+      "site": "your-project-dev-document",
+      "public": "./out",
+      "ignore": [
+        "**/.*",
+        "**/node_modules/**"
+      ]
+    },
+    {
+      "site": "your-project-stage-document",
+      "public": "./out",
+      "ignore": [
+        "**/.*",
+        "**/node_modules/**"
+      ]
+    },
+    {
+      "site": "your-project-prod-document",
+      "public": "./out",
+      "ignore": [
+        "**/.*",
+        "**/node_modules/**"
+      ]
+    }
+  ]
+}

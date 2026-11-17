@@ -1,0 +1,23 @@
+{
+  "env": "local",
+  "firebase": {
+    "projectId": "demo-template",
+    "storageBucket": "demo-template.appspot.com",
+    "apiKey": "fake-api-key"
+  },
+  "ops": {
+    "tenantId": "ops-local"
+  },
+  "web": {
+    "baseURL": "http://localhost:3001/",
+    "allowedOrigins": [
+      "http://localhost:3001",
+      "http://localhost:3004",
+      "http://localhost:5173"
+    ]
+  },
+  "algolia": {
+    "appId": "",
+    "apiKey!": ""
+  }
+}

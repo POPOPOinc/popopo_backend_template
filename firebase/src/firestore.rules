@@ -1,0 +1,87 @@
+rules_version = '2';
+
+// クライアント（Firebase SDK）からの直接アクセスに対するルール。
+// 書き込みは原則 app-server（Admin SDK）経由とし、ここでは読み取りのみを許可する。
+// 例外として、検証がいらない本人だけの設定（users/{userId}/settings/preferences）はクライアントから直接書き込める。
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMine(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // admins/{uid}.permission が kind: all か、values に requirePermission を含むか（permission が未設定なら全権限）
+    function hasAdminPermission(requirePermission) {
+      let admin = request.auth == null ? null : get(/databases/$(database)/documents/admins/$(request.auth.uid));
+      let permission = admin == null ? null : admin.data.get("permission", {"kind": "all", "values": []});
+      let values = permission == null ? [] : permission.get("values", []);
+      let kind = permission == null ? "" : permission.get("kind", "all");
+      return permission != null && (kind == "all" || requirePermission in values);
+    }
+
+    function ntpDriftMillis() {
+      return 5 * 60 * 1000;
+    }
+
+    // クライアントが書く UNIX ミリ秒の時刻が、サーバーの時刻から大きくずれていないか
+    function withinNtpDrift(millis) {
+      return millis is int
+        && millis >= request.time.toMillis() - ntpDriftMillis()
+        && millis <= request.time.toMillis() + ntpDriftMillis();
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // クライアントからの直接 write の例。本人だけが、決められたフィールドだけを書ける
+    match /users/{userId}/settings/preferences {
+      allow read: if isMine(userId);
+      allow create, update: if isMine(userId)
+        && request.resource.data.keys().hasOnly(["notification_enabled", "updated_at"])
+        && request.resource.data.notification_enabled is bool
+        && withinNtpDrift(request.resource.data.updated_at);
+      allow delete: if false;
+    }
+
+    // 表示期間外（display_period_state.active == false）の投稿は投稿者だけが読める。active は daemon（updatePostDisplayPeriod）が更新する。存在しない（削除済みの）投稿の get は許可する
+    match /posts/{postId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.display_period_state.active == true || resource.data.user_id == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /admins/{adminId} {
+      allow read: if isMine(adminId);
+      allow write: if false;
+    }
+
+    // 監査ログは ViewAdminAuditLog の権限を持つ管理者だけが読める（catch-all から除外して明示する）
+    match /admin-operations/{operationId} {
+      allow read: if hasAdminPermission("ViewAdminAuditLog");
+      allow write: if false;
+    }
+
+    // 上記以外は管理者のみ読み取り可能（管理ツール用の catch-all）。
+    // 権限を個別に制御したいコレクションはここで除外し、個別の match を書く
+    function isExcludedFromAdminCatchAllRead(collection) {
+      return collection in [
+        "admin-operations",
+      ];
+    }
+    match /{collection}/{docId} {
+      allow read: if isAdmin() && !isExcludedFromAdminCatchAllRead(collection);
+    }
+    match /{collection}/{docId}/{subPath=**} {
+      allow read: if isAdmin() && !isExcludedFromAdminCatchAllRead(collection);
+    }
+  }
+}

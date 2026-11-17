@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "module": "preserve",
+    "noImplicitReturns": true,
+    "noEmit": true,
+    "strict": true,
+    "target": "ES2022",
+    "lib": ["esnext", "DOM"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler"
+  },
+  "include": [
+    "src"
+  ]
+}

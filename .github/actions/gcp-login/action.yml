@@ -1,0 +1,29 @@
+##
+## env に対応した GCP プロジェクトのサービスアカウントにログインします。
+##
+## - 予め `sops-setup` を済ませておく必要があります
+## - 呼び出し後は `$GCP_PROJECT` に GCP のプロジェクト ID が入ります
+##
+name: gcp-login
+description: Log in to a service account of a GCP project via Workload Identity.
+
+inputs:
+  env:
+    required: true
+    description: env to which a GCP project to log in is associated.
+
+runs:
+  using: composite
+  steps:
+  - id: conf
+    working-directory: ./infra/conf
+    shell: bash
+    env:
+      TARGET_ENV: ${{ inputs.env }}
+    run: |
+      cat "${TARGET_ENV}.gha.yml" | yq '.gcp-oidc | to_entries[] | .key + "=" + .value' >> $GITHUB_OUTPUT
+
+  - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+    with:
+      workload_identity_provider: ${{ steps.conf.outputs.workload_identity_provider }}
+      service_account: ${{ steps.conf.outputs.service_account }}

@@ -1,0 +1,4 @@
+# GitHub Actions から prod 環境へデプロイするための設定（秘匿情報は含めない）
+gcp-oidc:
+    service_account: github-actions@your-project-prod.iam.gserviceaccount.com
+    workload_identity_provider: projects/000000000000/locations/global/workloadIdentityPools/your-pool/providers/your-provider

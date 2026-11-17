@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: Private API
+  description: |-
+    app-server の内部向け API エンドポイント。
+    プライベート IP アドレスからのアクセスのみ許可される。主にサーバー間の通信に使用する。
+  version: 0.1.0
+paths:
+  /api/v1/private/ping:
+    get:
+      summary: 疎通確認
+      operationId: ping
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivatePingResponse"
+        default:
+          $ref: "./components.yml#/components/responses/Error"
+components:
+  schemas:
+    PrivatePingResponse:
+      type: object
+      required: [message, remote_address]
+      properties:
+        message:
+          type: string
+        remote_address:
+          type: string

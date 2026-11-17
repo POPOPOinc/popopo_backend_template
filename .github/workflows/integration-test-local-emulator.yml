@@ -1,0 +1,105 @@
+name: integration test (local emulator)
+
+on:
+  # PR では check-and-test.yml から呼ばれる
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration-test-local-emulator:
+    name: run integration test (local emulator)
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    strategy:
+      # 1つのバージョンでテストが失敗しても、他のテストは継続する
+      fail-fast: false
+      matrix:
+        shard:
+          - 1/8
+          - 2/8
+          - 3/8
+          - 4/8
+          - 5/8
+          - 6/8
+          - 7/8
+          - 8/8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build schema
+        run: pnpm -C schema run build
+
+      - name: Setup Firebase emulator
+        id: firebase
+        uses: ./.github/actions/setup-firebase-emulator
+
+      - name: Setup initial data
+        uses: ./.github/actions/setup-initial-data
+
+      - name: Setup app server
+        id: app-server
+        uses: ./.github/actions/setup-app-server
+        with:
+          algolia-app-id: ${{ vars.ALGOLIA_APP_ID_FOR_TEST }}
+          algolia-api-key: ${{ secrets.ALGOLIA_API_KEY_FOR_TEST }}
+
+      # daemon はテストごとに integration-test の daemon-runner が起動する（Algolia は fake server）
+
+      - name: Wait for app server
+        run: |
+          timeout 60 bash -c 'until curl -s http://localhost:3000 > /dev/null 2>&1; do sleep 2; done'
+
+      - name: Run integration tests
+        run: |
+          cd integration-test
+          # テストファイルが shard 数より少ないと空の shard ができるので、テストがなくても成功にする
+          pnpm run test:emulator --shard="${SHARD}" --passWithNoTests
+        env:
+          SHARD: ${{ matrix.shard }}
+          NODE_OPTIONS: '--max-old-space-size=4096'
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ ! -z "${{ steps.firebase.outputs.firebase-pid }}" ]; then kill ${{ steps.firebase.outputs.firebase-pid }} || true; fi
+          if [ ! -z "${{ steps.app-server.outputs.app-server-pid }}" ]; then kill ${{ steps.app-server.outputs.app-server-pid }} || true; fi
+
+      - name: Show logs
+        if: always()
+        run: |
+          for f in api-server firebase-emulator; do
+            echo "::group::$f"
+            cat "logs/$f.log" 2>/dev/null || echo "No $f log found"
+            echo "::endgroup::"
+          done
+
+  check-integration-test-local-emulator:
+    name: integration-test-local-emulator-check
+    needs: integration-test-local-emulator
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check jobs outcome
+        run: |
+          # `needs` コンテキストから `integration-test-local-emulator` ジョブの結果を取得
+          # 1つでも "failure" または "cancelled" があれば、このステップを失敗させる
+          if [[ "${{ needs.integration-test-local-emulator.result }}" == "failure" || "${{ needs.integration-test-local-emulator.result }}" == "cancelled" ]]; then
+            echo "One or more jobs failed."
+            exit 1
+          else
+            echo "All jobs passed."
+          fi

@@ -1,0 +1,27 @@
+{
+  "name": "lib-firestore",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "check": "tsc --build tsconfig.json",
+    "lint": "eslint src",
+    "test": "firebase emulators:exec --project demo-template --only firestore jest"
+  },
+  "dependencies": {
+    "@types/node": "^24.19.2",
+    "firebase-admin": "^14.5.0",
+    "lib-common": "workspace:*",
+    "schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.5.2",
+    "@types/jest": "^30.0.0",
+    "firebase-tools": "^15.34.2",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.15",
+    "typescript": "^6.0.3"
+  }
+}

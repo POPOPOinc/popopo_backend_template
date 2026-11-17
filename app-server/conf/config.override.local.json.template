@@ -1,0 +1,6 @@
+{
+  "algolia": {
+    "appId": "PLACEHOLDER_ALGOLIA_APP_ID",
+    "apiKey!": "PLACEHOLDER_ALGOLIA_API_KEY"
+  }
+}

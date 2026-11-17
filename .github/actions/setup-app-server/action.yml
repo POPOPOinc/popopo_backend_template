@@ -1,0 +1,55 @@
+##
+## エミュレータ上で動かす app-server（API）をセットアップして起動します。
+##
+## 入力:
+##   - algolia-app-id: Algolia の App ID（任意。空の場合は Algolia を使わない）
+##   - algolia-api-key: Algolia の API キー（任意）
+##
+## 出力:
+##   - app-server-pid: app-server のプロセスID
+##
+name: setup-app-server
+description: Configure and start app-server against Firebase emulator
+
+inputs:
+  algolia-app-id:
+    description: Algolia App ID
+    required: false
+    default: ""
+  algolia-api-key:
+    description: Algolia API key
+    required: false
+    default: ""
+
+outputs:
+  app-server-pid:
+    description: App server process ID
+    value: ${{ steps.start-app-server.outputs.pid }}
+
+runs:
+  using: composite
+  steps:
+    - name: Create logs directory
+      shell: bash
+      run: mkdir -p logs
+
+    - name: Create app server config
+      shell: bash
+      env:
+        ALGOLIA_APP_ID: ${{ inputs.algolia-app-id }}
+        ALGOLIA_API_KEY: ${{ inputs.algolia-api-key }}
+      run: |
+        cd app-server
+        cp conf/config.override.local.json.template conf/config.override.local.json
+        sed -i "s/PLACEHOLDER_ALGOLIA_APP_ID/${ALGOLIA_APP_ID}/g" conf/config.override.local.json
+        sed -i "s/PLACEHOLDER_ALGOLIA_API_KEY/${ALGOLIA_API_KEY}/g" conf/config.override.local.json
+
+    - name: Start app server (API)
+      id: start-app-server
+      shell: bash
+      run: |
+        cd app-server
+        pnpm run main:dev api > ../logs/api-server.log 2>&1 &
+        echo "pid=$!" >> $GITHUB_OUTPUT
+      env:
+        NODE_ENV: development

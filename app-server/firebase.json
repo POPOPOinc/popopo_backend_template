@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/firebase/firebase-tools/refs/heads/master/schema/firebase-config.json",
+  "functions": {
+    "source": "functions",
+    "codebase": "app-server",
+    "ignore": [
+      "node_modules",
+      "firebase-debug.log",
+      "firebase-debug.*.log"
+    ]
+  }
+}

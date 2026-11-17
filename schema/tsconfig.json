@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "types": ["jest"],
+    "noEmit": true,
+    "target": "ES2022",
+    "moduleResolution": "Bundler",
+    "module": "Preserve",
+    "esModuleInterop": true,
+    "lib": [ "ESNext", "esnext.disposable", "DOM"],
+    "strict": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

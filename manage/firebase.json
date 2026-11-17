@@ -1,0 +1,69 @@
+{
+  "hosting": [
+    {
+      "site": "your-project-beta-manage",
+      "public": "./dist/beta",
+      "ignore": [
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    },
+    {
+      "site": "your-project-dev-manage",
+      "public": "./dist/dev",
+      "ignore": [
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    },
+    {
+      "site": "your-project-stage-manage",
+      "public": "./dist/stage",
+      "ignore": [
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    },
+    {
+      "site": "your-project-prod-manage",
+      "public": "./dist/prod",
+      "ignore": [
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    }
+  ],
+  "emulators": {
+    "hosting": {
+      "host": "127.0.0.1",
+      "port": 3004
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}

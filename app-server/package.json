@@ -1,0 +1,45 @@
+{
+  "name": "app-server",
+  "private": true,
+  "main": "out/main.js",
+  "scripts": {
+    "main:dev": "cross-env CONFIG_FILE_OVERRIDE=./conf/config.override.local.json FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099' FIRESTORE_EMULATOR_HOST='127.0.0.1:8080' FIREBASE_STORAGE_EMULATOR_HOST='127.0.0.1:9199' tsx src/main.ts",
+    "main:dev:watch": "cross-env CONFIG_FILE_OVERRIDE=./conf/config.override.local.json FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099' FIRESTORE_EMULATOR_HOST='127.0.0.1:8080' FIREBASE_STORAGE_EMULATOR_HOST='127.0.0.1:9199' tsx watch src/main.ts",
+    "dev": "pnpm run main:dev:watch api",
+    "job:dev": "pnpm run main:dev job",
+    "daemon:dev": "pnpm run main:dev:watch daemon",
+    "daemon:dev:all": "pnpm run main:dev:watch daemon-all",
+    "check": "tsc --build tsconfig.json && node scripts/check-daemon-config-consistency.mjs",
+    "build": "esbuild --platform=node --target=es2022 --format=cjs --bundle --sourcemap --keep-names --outfile=out/main.js src/main.ts",
+    "lint": "eslint src",
+    "test": "jest",
+    "daemon:dev:once": "pnpm run main:dev daemon",
+    "build:functions": "esbuild --platform=node --target=node24 --format=cjs --bundle --sourcemap --keep-names --external:firebase-admin --external:firebase-functions --outfile=functions/out/index.js src/functions.ts"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "deepmerge": "^4.3.1",
+    "express": "^5.3.0",
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0",
+    "helmet": "^8.3.0",
+    "lib-firestore": "workspace:*",
+    "lib-server": "workspace:*",
+    "schema": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.5.2",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.19.2",
+    "cross-env": "^10.1.0",
+    "esbuild": "^0.28.2",
+    "firebase-tools": "^15.34.2",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.15",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3"
+  }
+}

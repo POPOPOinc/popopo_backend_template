@@ -1,0 +1,29 @@
+name: deploy-on-push (algolia-index)
+
+on:
+  workflow_call:
+    inputs:
+      env:
+        type: string
+
+concurrency:
+  algolia-index-${{ inputs.env }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    uses: ./.github/workflows/check-and-test-algolia-index.yml
+
+  deploy:
+    permissions:
+      contents: read
+      id-token: write
+    needs: [check]
+    if: always() && needs.check.result == 'success'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      env: ${{ inputs.env }}
+      app: algolia-index
+    secrets: inherit

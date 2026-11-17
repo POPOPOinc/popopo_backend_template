@@ -1,0 +1,64 @@
+name: Warn FirebaseAdminUser changes
+
+# integration-test は「クライアントと同じ経路（API / Client SDK）で検証する」のが原則。
+# Admin SDK で直接操作するヘルパー（FirebaseAdminUser）が増えたら PR にコメントで注意を促す
+on:
+  pull_request:
+    paths:
+      - "integration-test/src/firebase-admin-user.ts"
+
+permissions:
+  contents: read
+
+jobs:
+  warn-firebase-admin-user:
+    permissions:
+      contents: read
+      pull-requests: write
+    if: github.event.pull_request.base.ref == 'beta'
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Post warning comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const body = [
+              "**FirebaseAdminUser Guard**",
+              "",
+              "`integration-test/src/firebase-admin-user.ts` が変更されています。",
+              "",
+              "このファイルに新しいメソッドを追加する場合、以下を確認してください:",
+              "",
+              "1. **manage API で代替できませんか？** — app-server の `/api/v1/manage/` で同じ操作ができる場合は `ManageUser` を使ってください。",
+              "2. **Client SDK（firestoreAccess）で代替できませんか？** — rules で読めるドキュメントなら `AppUser.firestoreAccess` を使ってください。",
+              "",
+              "Firebase Admin SDK を使うべきケース:",
+              "- Auth の操作（ログイン用のトークン発行など）",
+              "- rules でアクセスできないコレクション（`tasks` の書き込みなど）",
+              "- テストデータのセットアップ",
+            ].join("\n");
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('FirebaseAdminUser Guard')
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

@@ -1,0 +1,203 @@
+name: deploy-on-pr-comment
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-to-beta:
+    # PRコメントで /betaloy コマンドが実行された場合に実行
+    # メンバー以外からのコメントは無視する
+    if: |
+      github.event.issue.pull_request != null &&
+      startsWith(github.event.comment.body, '/betaloy') &&
+      (github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'COLLABORATOR')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
+    concurrency:
+      group: deploy-on-pr-comment-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    steps:
+      - name: PRの情報を取得
+        id: pr-info
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            })
+
+            // クローズ済みのPRからはデプロイできない
+            if (pr.data.state !== 'open') {
+              core.setFailed('クローズ済みのPRからはデプロイできません')
+              return
+            }
+
+            // フォークからのPRは対応しない
+            if (pr.data.head.repo.fork) {
+              core.setFailed('フォークからのPRはサポートされていません')
+              return
+            }
+
+            core.setOutput('head_ref', pr.data.head.ref)
+            core.setOutput('head_sha', pr.data.head.sha)
+
+      - name: ブランチが beta より遅れていないか確認
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          HEAD_REF: ${{ steps.pr-info.outputs.head_ref }}
+        with:
+          script: |
+            const headRef = process.env.HEAD_REF
+
+            // PRブランチと beta ブランチを比較
+            const comparison = await github.rest.repos.compareCommitsWithBasehead({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              basehead: `${headRef}...beta`
+            })
+
+            // beta にあって PR ブランチにないコミットがある場合は拒否
+            if (comparison.data.ahead_by > 0) {
+              const message = [
+                `ブランチ \`${headRef}\` は \`beta\` より ${comparison.data.behind_by} コミット先行、${comparison.data.ahead_by} コミット遅れています。`,
+                '',
+                '古いブランチからのデプロイは beta 環境の変更（Firestore インデックス等）をロールバックする恐れがあるため、拒否されました。',
+                '',
+                '`origin/beta` をマージしてから再度 `/betaloy` を実行してください:',
+                '```',
+                'git fetch origin',
+                'git merge origin/beta',
+                'git push',
+                '```'
+              ].join('\n')
+
+              // PRにコメントでエラーを通知
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: message
+              })
+
+              core.setFailed(message)
+            }
+
+      - name: 処理開始のリアクションを追加
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'eyes'
+            })
+
+      - name: Slack にデプロイ開始を通知
+        if: ${{ vars.SLACK_DEPLOY_CHANNEL_ID != '' }}
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          payload: |
+            {
+              "text": "beta 環境に `${{ steps.pr-info.outputs.head_ref }}` のデプロイを開始します。",
+              "channel": "${{ vars.SLACK_DEPLOY_CHANNEL_ID }}",
+              "attachments": [{
+                "color": "warning",
+                "text": "20秒以内にワークフローをキャンセルすればデプロイを中止できます。\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run #${{ github.run_id }}>",
+                "footer": "Author <${{ github.server_url }}/${{ github.event.sender.login }}|@${{ github.event.sender.login }}>"
+              }]
+            }
+
+      - name: キャンセル猶予のため20秒待機
+        run: sleep 20
+
+      - name: Slack にデプロイ実行を通知
+        if: ${{ vars.SLACK_DEPLOY_CHANNEL_ID != '' }}
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          payload: |
+            {
+              "text": "キャンセルされなかったため、beta 環境へ `${{ steps.pr-info.outputs.head_ref }}` のデプロイを実行します。",
+              "channel": "${{ vars.SLACK_DEPLOY_CHANNEL_ID }}",
+              "attachments": [{
+                "color": "good",
+                "text": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run #${{ github.run_id }}>",
+                "footer": "Author <${{ github.server_url }}/${{ github.event.sender.login }}|@${{ github.event.sender.login }}>"
+              }]
+            }
+
+      - name: deploy-all ワークフローをトリガー
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          HEAD_REF: ${{ steps.pr-info.outputs.head_ref }}
+          SENDER_LOGIN: ${{ github.event.sender.login }}
+        with:
+          script: |
+            const headRef = process.env.HEAD_REF
+            const senderLogin = process.env.SENDER_LOGIN
+
+            // deploy-all.yml を beta 環境向けにトリガー
+            // デプロイ対象は deploy-all.yml 内の差分検出（detect-deploy-targets）で自動判定される
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy-all.yml',
+              ref: headRef,
+              inputs: {
+                env: 'beta',
+                slack_notify_channel: '${{ vars.SLACK_DEPLOY_CHANNEL_ID }}',
+                slack_notify_author: senderLogin
+              }
+            })
+
+      - name: 成功のリアクションを追加
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            })
+
+      - name: 結果をコメント
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          HEAD_REF: ${{ steps.pr-info.outputs.head_ref }}
+          HEAD_SHA: ${{ steps.pr-info.outputs.head_sha }}
+        with:
+          script: |
+            const headRef = process.env.HEAD_REF
+            const headSha = process.env.HEAD_SHA
+
+            const body = [
+              'beta環境へのデプロイワークフロー（deploy-all）をトリガーしました:',
+              `- ブランチ: \`${headRef}\``,
+              `- コミット: \`${headSha.substring(0, 7)}\``,
+              `- デプロイ対象: beta ブランチとの差分から自動検出`,
+              '',
+              `ワークフローの実行状況は [Actions](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/deploy-all.yml) で確認できます。`
+            ].join('\n')
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            })

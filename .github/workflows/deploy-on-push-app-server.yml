@@ -1,0 +1,32 @@
+name: deploy-on-push (app-server)
+
+on:
+  workflow_call:
+    inputs:
+      env:
+        type: string
+
+concurrency:
+  app-server-${{ inputs.env }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: ./.github/workflows/check-and-test-app-server.yml
+
+  deploy:
+    permissions:
+      contents: read
+      id-token: write
+    needs: [check]
+    if: always() && needs.check.result == 'success'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      env: ${{ inputs.env }}
+      app: app-server
+    secrets: inherit

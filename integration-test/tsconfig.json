@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "types": ["node", "jest"],
+    "noEmit": true,
+    "moduleResolution": "Bundler",
+    "module": "Preserve",
+    "target": "ES2022",
+    "lib": [ "ESNext", "esnext.disposable", "DOM" ],
+    "strict": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "esModuleInterop": true
+  },
+  "include": ["src/**/*.ts", "jest.config.ts", "../lib-server/types/**/*.d.ts"]
+}

@@ -1,0 +1,11 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "firebase": {
+    "projectId": "demo-template",
+    "apiKey": "fake-api-key",
+    "storageBucket": "demo-template.appspot.com"
+  },
+  "ops": {
+    "tenantId": "ops-local"
+  }
+}

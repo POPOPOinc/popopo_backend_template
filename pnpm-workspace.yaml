@@ -1,0 +1,26 @@
+packages:
+  - schema
+  - lib-common
+  - lib-server
+  - lib-firestore
+  - lib-front
+  - lib-react
+  - app-server
+  - app-server/functions
+  - firebase
+  - document
+  - web
+  - web/functions
+  - manage
+  - migration
+  - algolia-index
+  - integration-test
+allowBuilds:
+  '@firebase/util': true
+  '@parcel/watcher': true
+  core-js: false
+  esbuild: true
+  protobufjs: true
+  # superstatic（firebase-tools）の optional な native 版。ビルドせず re2js にフォールバックさせる
+  re2: false
+  unrs-resolver: true

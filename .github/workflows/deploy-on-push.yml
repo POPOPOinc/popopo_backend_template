@@ -1,0 +1,51 @@
+##
+## 自動デプロイ（push トリガー）
+##
+## beta, dev, stage, prod ブランチへの push 時に、
+## 前のコミットとの差分を検出してデプロイを実行します。
+##
+## 実際のデプロイロジックは deploy-all.yml に集約されており、
+## このワークフローは base ref を解決して呼び出すだけの薄いラッパーです。
+##
+name: deploy-on-push
+
+on:
+  push:
+    branches: [beta, dev, stage, prod]
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-base:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.prev.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      # push 前の HEAD（複数コミットをまとめて push しても全体の差分を見る）。ブランチの新規作成時は before が 0 埋めなので HEAD^ にする
+      - name: Resolve previous commit SHA
+        id: prev
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]]; then
+            echo "sha=$(git rev-parse HEAD^)" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=$BEFORE" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    needs: resolve-base
+    uses: ./.github/workflows/deploy-all.yml
+    with:
+      env: ${{ github.ref_name }}
+      base: ${{ needs.resolve-base.outputs.sha }}
+    secrets: inherit

@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "types": ["node"],
+    "rootDir": ".",
+    "noEmit": true,
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "target": "es2017",
+    "strict": true,
+    "outDir": "build",
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "alwaysStrict": true,
+    "jsx": "react-jsx",
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
+    "typeRoots": [
+      "node_modules/@types"
+    ],
+    "lib": [
+      "es2017",
+      "DOM",
+      "DOM.Iterable"
+    ]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts"
+  ],
+  "ts-node": {
+    "require": [
+      "tsconfig-paths/register"
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "algolia-index",
+  "type": "module",
+  "scripts": {
+    "clean": "rm -rf ./out",
+    "check": "tsc --build tsconfig.json",
+    "lint": "eslint src",
+    "build": "node esbuild.config.mjs",
+    "apply": "pnpm run build && node ./out/main.mjs"
+  },
+  "dependencies": {
+    "lib-server": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "esbuild": "^0.28.2",
+    "typescript": "^6.0.3"
+  }
+}

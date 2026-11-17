@@ -1,0 +1,55 @@
+rules_version = '2';
+
+// Storage へのアップロードは 2 段階で行う（schema の FirebaseStoragePaths を参照）。
+// 1. クライアントは tmp/users/{firebaseUid}/...-uploaded に書き込む（本人のみ・読み取り不可）
+// 2. app-server が内容を検証し、正式なパスへ移動する（正式なパスはクライアントから書き込み不可）
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isNotUndefined(data, field) {
+      return data.keys().hasAll([field]);
+    }
+
+    function isMine(request, userId) {
+      return request.auth != null && request.auth.uid == userId
+    }
+
+    // Firestore の rules と同じく admins/{uid} の存在で判定する（manage のテナントでログインしていることも確認する）
+    function isAdmin(request) {
+      return request.auth != null
+        && isNotUndefined(request.auth.token.firebase, "tenant")
+        && firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid))
+    }
+
+    // ---- 公開パス（サーバーのみ書き込み） ----
+    match /users/{userId}/icon {
+      allow read;
+      allow write: if false;
+    }
+
+    match /posts/{postId}/image {
+      allow read;
+      allow write: if false;
+    }
+
+    // ---- 一時アップロードパス ----
+    match /tmp/users/{userId}/icon-uploaded {
+      allow read: if false;
+      allow write: if isMine(request, userId)
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size < 5 * 1024 * 1024
+    }
+
+    match /tmp/users/{userId}/posts/image-uploaded {
+      allow read: if false;
+      allow write: if isMine(request, userId)
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size < 10 * 1024 * 1024
+    }
+
+    // 管理ツール（管理者）は全パスを読み取れる（Firestore の管理者 catch-all と整合）
+    match /{allPaths=**} {
+      allow read: if isAdmin(request);
+      allow write: if false;
+    }
+  }
+}

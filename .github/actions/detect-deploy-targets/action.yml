@@ -1,0 +1,218 @@
+##
+## 指定された base ref との差分を検出し、デプロイが必要なアプリケーションを判定します。
+##
+## deploy-on-push.yml と deploy-manual.yml の両方から呼び出され、
+## フィルタ定義と依存関係の判定ロジックを共通化しています。
+##
+## force-all: true の場合、差分検出をスキップして全モジュールをデプロイ対象にします。
+##
+name: detect-deploy-targets
+description: Detect which applications need deployment based on file changes
+
+inputs:
+  base:
+    required: true
+    description: Base ref (branch name, tag, or SHA) to compare against
+  force-all:
+    required: false
+    default: 'false'
+    description: Skip diff detection and mark all modules for deployment
+
+outputs:
+  needs-to-deploy-algolia-index:
+    description: Whether algolia-index needs deployment
+    value: ${{ steps.compute.outputs.needs-to-deploy-algolia-index }}
+  needs-to-deploy-app-server:
+    description: Whether app-server needs deployment
+    value: ${{ steps.compute.outputs.needs-to-deploy-app-server }}
+  needs-to-deploy-manage:
+    description: Whether manage needs deployment
+    value: ${{ steps.compute.outputs.needs-to-deploy-manage }}
+  needs-to-deploy-web:
+    description: Whether web needs deployment
+    value: ${{ steps.compute.outputs.needs-to-deploy-web }}
+  needs-to-deploy-migration:
+    description: Whether migration needs deployment
+    value: ${{ steps.compute.outputs.needs-to-deploy-migration }}
+  needs-to-deploy-firebase:
+    description: Whether firebase needs deployment
+    value: ${{ steps.compute.outputs.needs-to-deploy-firebase }}
+  needs-to-deploy-document:
+    description: Whether document needs deployment
+    value: ${{ steps.compute.outputs.needs-to-deploy-document }}
+  needs-to-run-integration-test:
+    description: Whether integration-test needs to run
+    value: ${{ steps.compute.outputs.needs-to-run-integration-test }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve base ref to SHA
+      id: resolve-base
+      shell: bash
+      env:
+        BASE_REF: ${{ inputs.base }}
+      run: |
+        # base が SHA でない場合（ブランチ名や origin/branch 形式）を SHA に解決する。
+        # dorny/paths-filter は base をそのまま git fetch の refspec として使うため、
+        # origin/xxx のような形式だとリモート参照が見つからずエラーになる。
+        resolved=$(git rev-parse "${BASE_REF}")
+        echo "sha=${resolved}" >> "$GITHUB_OUTPUT"
+    - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+      if: ${{ inputs.force-all != 'true' }}
+      id: changes
+      with:
+        base: ${{ steps.resolve-base.outputs.sha }}
+        filters: |
+          schema:
+            - 'schema/src/**'
+            - 'schema/package.json'
+            - 'schema/tsconfig.json'
+            - 'schema/eslint.config.mjs'
+          lib-front:
+            - '.github/workflows/check-and-test-lib-front.yml'
+            - 'lib-front/src/**'
+            - 'lib-front/package.json'
+            - 'lib-front/tsconfig.json'
+            - 'lib-front/eslint.config.mjs'
+          lib-common:
+            - '.github/workflows/check-simple.yml'
+            - 'lib-common/src/**'
+            - 'lib-common/package.json'
+            - 'lib-common/eslint.config.mjs'
+          lib-server:
+            - '.github/workflows/check-simple.yml'
+            - 'lib-server/src/**'
+            - 'lib-server/package.json'
+            - 'lib-server/eslint.config.mjs'
+          lib-firestore:
+            - 'lib-firestore/src/**'
+            - 'lib-firestore/package.json'
+            - 'lib-firestore/tsconfig.json'
+            - 'lib-firestore/eslint.config.mjs'
+          lib-react:
+            - 'lib-react/src/**'
+            - 'lib-react/package.json'
+            - 'lib-react/tsconfig.json'
+            - 'lib-react/eslint.config.mjs'
+          migration:
+            - '.github/workflows/deploy-on-push-migration.yml'
+            - 'migration/**'
+            - 'infra/conf/**'
+            - 'infra/deploy/migration/**'
+          algolia-index:
+            - '.github/workflows/deploy-on-push-algolia-index.yml'
+            - 'algolia-index/src/**'
+            - 'algolia-index/package.json'
+            - 'lib-server/src/**'
+            - 'infra/conf/**'
+          app-server:
+            - '.github/workflows/deploy-on-push-app-server.yml'
+            - 'app-server/src/**'
+            - 'app-server/package.json'
+            - 'app-server/tsconfig.json'
+            - 'app-server/eslint.config.mjs'
+            - 'infra/conf/**'
+            - 'infra/deploy/app-server/**'
+            - 'app-server/functions/package.json'
+            - 'app-server/firebase.json'
+          web:
+            - '.github/workflows/deploy-on-push-common.yml'
+            - 'web/env/**'
+            - 'web/public/**'
+            - 'web/src/**'
+            - 'web/functions/src/**'
+            - 'web/index.html'
+            - 'web/firebase.json'
+            - 'web/package.json'
+            - 'web/tsconfig.json'
+            - 'web/vite.config.mts'
+            - 'web/eslint.config.mjs'
+            - 'web/scripts/**'
+            - 'infra/conf/**'
+          manage:
+            - '.github/workflows/deploy-on-push-common.yml'
+            - 'manage/env/**'
+            - 'manage/src/**'
+            - 'manage/package.json'
+            - 'manage/tsconfig.json'
+            - 'manage/vite.config.mts'
+            - 'manage/eslint.config.mjs'
+            - 'infra/conf/**'
+          firebase:
+            - '.github/workflows/deploy-on-push-common.yml'
+            - '.github/workflows/firebase-deploy.yml'
+            - 'firebase/.firebaserc'
+            - 'firebase/firebase.json'
+            - 'firebase/package.json'
+            - 'firebase/src/**'
+          document:
+            - '.github/workflows/deploy-on-push-common.yml'
+            - 'document/src/**'
+            - '.gitmodules'
+            - 'infra/conf/**'
+            - 'infra/deploy/document/**'
+          integration-test:
+            - '.github/workflows/integration-test.yml'
+            - 'integration-test/**'
+
+    - id: compute
+      shell: bash
+      env:
+        FORCE_ALL: ${{ inputs.force-all }}
+      run: |
+        # 各アプリケーションのデプロイ要否を、パッケージ変更 + 依存ライブラリ変更から判定する
+        force_all="${FORCE_ALL}"
+        compute_flag() {
+          local name="$1"
+          shift
+          local result="false"
+          if [[ "$force_all" == "true" ]]; then
+            result="true"
+          else
+            for change in "$@"; do
+              if [[ "$change" == "true" ]]; then
+                result="true"
+                break
+              fi
+            done
+          fi
+          echo "${name}=${result}" >> "$GITHUB_OUTPUT"
+        }
+
+        compute_flag "needs-to-deploy-algolia-index" \
+          "${{ steps.changes.outputs.algolia-index }}" \
+          "${{ steps.changes.outputs.lib-server }}"
+
+        compute_flag "needs-to-deploy-app-server" \
+          "${{ steps.changes.outputs.schema }}" \
+          "${{ steps.changes.outputs.app-server }}" \
+          "${{ steps.changes.outputs.lib-common }}" \
+          "${{ steps.changes.outputs.lib-server }}" \
+          "${{ steps.changes.outputs.lib-firestore }}"
+
+        compute_flag "needs-to-deploy-manage" \
+          "${{ steps.changes.outputs.schema }}" \
+          "${{ steps.changes.outputs.manage }}" \
+          "${{ steps.changes.outputs.lib-front }}" \
+          "${{ steps.changes.outputs.lib-common }}"
+
+        compute_flag "needs-to-deploy-web" \
+          "${{ steps.changes.outputs.schema }}" \
+          "${{ steps.changes.outputs.web }}" \
+          "${{ steps.changes.outputs.lib-front }}" \
+          "${{ steps.changes.outputs.lib-react }}"
+
+        compute_flag "needs-to-deploy-migration" \
+          "${{ steps.changes.outputs.schema }}" \
+          "${{ steps.changes.outputs.migration }}"
+
+        compute_flag "needs-to-deploy-firebase" \
+          "${{ steps.changes.outputs.firebase }}"
+
+        compute_flag "needs-to-deploy-document" \
+          "${{ steps.changes.outputs.schema }}" \
+          "${{ steps.changes.outputs.document }}"
+
+        compute_flag "needs-to-run-integration-test" \
+          "${{ steps.changes.outputs.integration-test }}"

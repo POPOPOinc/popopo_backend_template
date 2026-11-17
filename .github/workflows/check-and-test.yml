@@ -1,0 +1,386 @@
+name: setup
+
+on:
+  pull_request:
+  push:
+    branches:
+      # deployでテストを実行しているので本来不要だが、GHA Cacheの温めのためあえて実行している
+      - beta
+
+permissions:
+  contents: read
+
+jobs:
+  setup-job:
+    permissions:
+      contents: read
+      pull-requests: read
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    outputs:
+      needs-to-test-lib-front: ${{
+        steps.changes.outputs.lib-front == 'true' ||
+        steps.changes.outputs.schema == 'true'
+        }}
+      needs-to-test-lib-common: ${{
+        steps.changes.outputs.lib-common == 'true'
+        }}
+      needs-to-test-lib-server: ${{
+        steps.changes.outputs.lib-server == 'true' ||
+        steps.changes.outputs.schema == 'true'
+        }}
+      needs-to-test-lib-firestore: ${{
+        steps.changes.outputs.lib-firestore == 'true' ||
+        steps.changes.outputs.lib-server == 'true' ||
+        steps.changes.outputs.schema == 'true'
+        }}
+      needs-to-test-lib-react: ${{
+        steps.changes.outputs.lib-react == 'true' ||
+        steps.changes.outputs.schema == 'true'
+        }}
+      needs-to-test-schema: ${{
+        steps.changes.outputs.schema == 'true'
+        }}
+      needs-to-test-algolia-index: ${{
+        steps.changes.outputs.algolia-index == 'true' ||
+        steps.changes.outputs.lib-server == 'true'
+        }}
+      needs-to-test-app-server: ${{
+        steps.changes.outputs.schema == 'true' ||
+        steps.changes.outputs.app-server == 'true' ||
+        steps.changes.outputs.lib-common == 'true' ||
+        steps.changes.outputs.lib-server == 'true' ||
+        steps.changes.outputs.lib-firestore == 'true'
+        }}
+      needs-to-test-manage: ${{
+        steps.changes.outputs.schema == 'true' ||
+        steps.changes.outputs.manage == 'true' ||
+        steps.changes.outputs.lib-front == 'true' ||
+        steps.changes.outputs.lib-common == 'true'
+        }}
+      needs-to-test-web: ${{
+        steps.changes.outputs.schema == 'true' ||
+        steps.changes.outputs.web == 'true' ||
+        steps.changes.outputs.lib-front == 'true' ||
+        steps.changes.outputs.lib-react == 'true'
+        }}
+      needs-to-test-migration: ${{
+        steps.changes.outputs.schema == 'true' ||
+        steps.changes.outputs.migration == 'true'
+        }}
+      needs-to-test-firebase: ${{
+        steps.changes.outputs.firebase == 'true'
+        }}
+      needs-to-test-integration-test: ${{
+        steps.changes.outputs.schema == 'true' ||
+        steps.changes.outputs.integration-test == 'true' ||
+        steps.changes.outputs.lib-front == 'true' ||
+        steps.changes.outputs.firebase == 'true'
+        }}
+      needs-to-check-infra-conf: ${{ steps.changes.outputs.infra-conf == 'true' }}
+      needs-to-test-document: ${{
+        steps.changes.outputs.schema == 'true' ||
+        steps.changes.outputs.document == 'true'
+        }}
+    steps:
+      # push 時の paths-filter は git の履歴で差分を取るので、認証なしで済むよう全履歴を取得しておく
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: changes
+        with:
+          filters: |
+            schema:
+              - 'schema/src/**'
+              - 'schema/package.json'
+              - 'schema/tsconfig.json'
+              - 'schema/eslint.config.mjs'
+              - 'eslint/eslint-base-node.config.mjs'
+              - 'eslint/eslint-base.config.mjs'
+            lib-front:
+              - '.github/workflows/check-and-test-lib-front.yml'
+              - 'lib-front/src/**'
+              - 'lib-front/package.json'
+              - 'lib-front/tsconfig.json'
+              - 'lib-front/eslint.config.mjs'
+              - 'eslint/firestore-index-check.mjs'
+              - 'eslint/eslint-base-react.config.mjs'
+              - 'eslint/eslint-base.config.mjs'
+            lib-common:
+              - '.github/workflows/check-simple.yml'
+              - 'lib-common/src/**'
+              - 'lib-common/package.json'
+              - 'lib-common/tsconfig.json'
+              - 'lib-common/jest.config.ts'
+              - 'lib-common/eslint.config.mjs'
+              - 'eslint/eslint-base-node.config.mjs'
+              - 'eslint/eslint-base.config.mjs'
+            lib-server:
+              - '.github/workflows/check-simple.yml'
+              - 'lib-server/src/**'
+              - 'lib-server/test/**'
+              - 'lib-server/package.json'
+              - 'lib-server/tsconfig.json'
+              - 'lib-server/jest.config.ts'
+              - 'lib-server/eslint.config.mjs'
+              - 'eslint/eslint-base-node.config.mjs'
+              - 'eslint/eslint-base.config.mjs'
+            lib-firestore:
+              - 'lib-firestore/src/**'
+              - 'lib-firestore/package.json'
+              - 'lib-firestore/tsconfig.json'
+              - 'lib-firestore/eslint.config.mjs'
+              - 'eslint/eslint-base-node.config.mjs'
+              - 'eslint/eslint-base.config.mjs'
+            lib-react:
+              - '.github/workflows/check-simple.yml'
+              - 'lib-react/src/**'
+              - 'lib-react/package.json'
+              - 'lib-react/tsconfig.json'
+              - 'lib-react/eslint.config.mjs'
+              - 'eslint/eslint-base-react.config.mjs'
+              - 'eslint/eslint-base.config.mjs'
+            app-server:
+              - '.github/workflows/check-and-test-app-server.yml'
+              - 'app-server/src/**'
+              - 'app-server/test/**'
+              - 'app-server/eslint-rules/**'
+              - 'app-server/package.json'
+              - 'app-server/tsconfig.json'
+              - 'app-server/eslint.config.mjs'
+              - 'eslint/firestore-index-check.mjs'
+              - 'eslint/eslint-base-node.config.mjs'
+              - 'eslint/eslint-base.config.mjs'
+              - 'infra/conf/**'
+              - 'infra/deploy/app-server/**'
+            integration-test:
+              - '.github/workflows/check-and-test-integration-test.yml'
+              - '.github/workflows/integration-test-local-emulator.yml'
+              - '.github/actions/setup-app-server/**'
+              - '.github/actions/setup-firebase-emulator/**'
+              - '.github/actions/setup-initial-data/**'
+              - 'integration-test/scripts/**'
+              - 'integration-test/conf/**'
+              - 'integration-test/jest.config.ts'
+              - 'integration-test/src/**'
+              - 'integration-test/package.json'
+              - 'integration-test/tsconfig.json'
+              - 'integration-test/eslint.config.mjs'
+              - 'eslint/firestore-index-check.mjs'
+              - 'eslint/eslint-base-node.config.mjs'
+              - 'eslint/eslint-base.config.mjs'
+            manage:
+              - '.github/workflows/check-and-test-manage.yml'
+              - 'manage/env/**'
+              - 'manage/src/**'
+              - 'manage/test/**'
+              - 'manage/jest.config.ts'
+              - 'manage/package.json'
+              - 'manage/tsconfig.json'
+              - 'manage/vite.config.mts'
+              - 'manage/eslint.config.mjs'
+              - 'eslint/eslint-base-react.config.mjs'
+              - 'eslint/eslint-base.config.mjs'
+            web:
+              - '.github/workflows/check-and-test-web.yml'
+              - 'web/env/**'
+              - 'web/public/**'
+              - 'web/src/**'
+              - 'web/functions/src/**'
+              - 'web/index.html'
+              - 'web/firebase.json'
+              - 'web/package.json'
+              - 'web/tsconfig.json'
+              - 'web/vite.config.mts'
+              - 'web/eslint.config.mjs'
+              - 'web/scripts/**'
+              - 'eslint/eslint-base-react.config.mjs'
+              - 'eslint/eslint-base.config.mjs'
+            migration:
+              - '.github/workflows/check-and-test-migration.yml'
+              - 'migration/src/**'
+              - 'migration/migrations/**'
+            algolia-index:
+              - '.github/workflows/check-and-test-algolia-index.yml'
+              - 'algolia-index/src/**'
+              - 'lib-server/src/**'
+            firebase:
+              - 'firebase/**'
+              - 'schema/src/firestore-paths.ts'
+            infra-conf:
+              - 'infra/conf/*.encrypted.json'
+            document:
+              - '.github/workflows/check-simple.yml'
+              - 'document/src/**'
+              - 'document/scripts/**'
+              - 'document/eslint-rules/**'
+              - 'document/package.json'
+              - 'document/tsconfig.json'
+              - 'document/eslint.config.mjs'
+              - 'eslint/eslint-base-node.config.mjs'
+              - 'eslint/eslint-base.config.mjs'
+              - 'schema/src/firestore-paths.ts'
+
+  lib-front:
+    permissions:
+      contents: read
+      pull-requests: write
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-lib-front == 'true' }}
+    uses: ./.github/workflows/check-and-test-lib-front.yml
+  lib-common:
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-lib-common == 'true' }}
+    uses: ./.github/workflows/check-simple.yml
+    with:
+      working-directory: ./lib-common
+      with-lint: true
+      with-test: true
+  lib-server:
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-lib-server == 'true' }}
+    uses: ./.github/workflows/check-simple.yml
+    with:
+      working-directory: ./lib-server
+      with-lint: true
+      with-test: true
+  lib-firestore:
+    permissions:
+      contents: read
+      pull-requests: write
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-lib-firestore == 'true' }}
+    uses: ./.github/workflows/check-and-test-lib-firestore.yml
+  lib-react:
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-lib-react == 'true' }}
+    uses: ./.github/workflows/check-simple.yml
+    with:
+      working-directory: ./lib-react
+      with-lint: true
+  schema:
+    permissions:
+      contents: read
+      pull-requests: write
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-schema == 'true' }}
+    uses: ./.github/workflows/check-and-test-schema.yml
+  app-server:
+    permissions:
+      contents: read
+      pull-requests: write
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-app-server == 'true' }}
+    uses: ./.github/workflows/check-and-test-app-server.yml
+  integration-test:
+    permissions:
+      contents: read
+      pull-requests: write
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-integration-test == 'true' }}
+    uses: ./.github/workflows/check-and-test-integration-test.yml
+  # エミュレータ上で app-server を起動して統合テストを回す（8 shard）
+  integration-test-local-emulator:
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-integration-test == 'true' || needs.setup-job.outputs.needs-to-test-app-server == 'true' }}
+    uses: ./.github/workflows/integration-test-local-emulator.yml
+    secrets: inherit
+  manage:
+    permissions:
+      contents: read
+      pull-requests: write
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-manage == 'true' }}
+    uses: ./.github/workflows/check-and-test-manage.yml
+  web:
+    permissions:
+      contents: read
+      pull-requests: write
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-web == 'true' }}
+    uses: ./.github/workflows/check-and-test-web.yml
+  migration:
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-migration == 'true' }}
+    uses: ./.github/workflows/check-and-test-migration.yml
+  algolia-index:
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-algolia-index == 'true' }}
+    uses: ./.github/workflows/check-and-test-algolia-index.yml
+  firebase:
+    permissions:
+      contents: read
+      pull-requests: write
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-firebase == 'true' }}
+    uses: ./.github/workflows/check-and-test-firebase.yml
+  document:
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-test-document == 'true' }}
+    uses: ./.github/workflows/check-simple.yml
+    with:
+      working-directory: ./document
+      with-lint: true
+      with-build: true
+  # infra/conf の暗号化ファイルに含まれる sops バージョンが setup-sops と一致するか検証
+  infra-conf:
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-check-infra-conf == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check sops version in encrypted files
+        run: node infra/lint/index.mjs
+
+
+  # 外部の action が full commit SHA で pin されているかを確認する
+  actions-pinned:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check actions are pinned to full commit SHA
+        run: node .github/scripts/check-actions-pinned.mjs
+
+  # export されているが使われていないコード・ファイル・依存を検出する（knip.json）
+  knip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+      - run: pnpm install
+      - run: pnpm run knip
+
+  aggregate-results:
+    if: ${{ failure() }}
+    needs:
+      - lib-front
+      - lib-common
+      - lib-server
+      - lib-firestore
+      - lib-react
+      - app-server
+      - integration-test
+      - integration-test-local-emulator
+      - manage
+      - web
+      - migration
+      - algolia-index
+      - firebase
+      - document
+      - infra-conf
+      - actions-pinned
+      - knip
+    name: run check and test
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1

@@ -1,0 +1,11 @@
+{
+  "baseUrl": "https://api.stage.example.com",
+  "firebase": {
+    "projectId": "your-project-stage",
+    "apiKey": "YOUR_FIREBASE_WEB_API_KEY",
+    "storageBucket": "your-project-stage.firebasestorage.app"
+  },
+  "ops": {
+    "tenantId": "YOUR_OPS_TENANT_ID"
+  }
+}

@@ -1,0 +1,15 @@
+# SOPS の暗号化ルール。infra/conf/{env}.config.*.json のうち、キー名が `!` で終わる値だけを暗号化する（infra/README.md 参照）。
+# age の公開鍵は各自が `age-keygen` で作成したものに置き換えてください（下記はダミー）。
+creation_rules:
+  - path_regex: (^|/)prod\.config\.(decrypted|encrypted)\.json$
+    encrypted_regex: "!$"
+    age: age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqprod
+  - path_regex: (^|/)stage\.config\.(decrypted|encrypted)\.json$
+    encrypted_regex: "!$"
+    age: age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqstage
+  - path_regex: (^|/)dev\.config\.(decrypted|encrypted)\.json$
+    encrypted_regex: "!$"
+    age: age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdev
+  - path_regex: (^|/)beta\.config\.(decrypted|encrypted)\.json$
+    encrypted_regex: "!$"
+    age: age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqbeta

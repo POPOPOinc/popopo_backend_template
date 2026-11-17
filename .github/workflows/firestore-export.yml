@@ -1,0 +1,51 @@
+name: firestore-export
+
+# Firestore を Cloud Storage へ手動エクスポートする（バックアップ・調査用）
+# 事前に gs://<GCP_PROJECT>-firestore-export バケットを作成しておくこと
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        type: choice
+        description: 対象環境
+        options: [beta, dev, stage, prod]
+      collection_ids:
+        type: string
+        description: "エクスポートするコレクション ID（カンマ区切り、空なら全コレクション）"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/gcp-login
+        with:
+          env: ${{ inputs.env }}
+
+      - name: Firestore エクスポート実行
+        env:
+          COLLECTION_IDS: ${{ inputs.collection_ids }}
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          BUCKET="gs://${GCP_PROJECT}-firestore-export/manual/${TIMESTAMP}"
+
+          echo "Project: ${GCP_PROJECT}"
+          echo "Destination: ${BUCKET}"
+          echo "Collections: ${COLLECTION_IDS:-(all)}"
+
+          if [ -n "${COLLECTION_IDS}" ]; then
+            gcloud firestore export "${BUCKET}" --project="${GCP_PROJECT}" --collection-ids="${COLLECTION_IDS}"
+          else
+            gcloud firestore export "${BUCKET}" --project="${GCP_PROJECT}"
+          fi

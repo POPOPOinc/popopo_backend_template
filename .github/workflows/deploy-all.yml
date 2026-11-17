@@ -1,0 +1,384 @@
+##
+## デプロイワークフロー（共通）
+##
+## 差分を検出し、依存関係を考慮した順序でデプロイを実行します。
+## deploy-on-push.yml（自動デプロイ）と workflow_dispatch（手動デプロイ）の
+## 両方から利用される共通ワークフローです。
+##
+## 手動デプロイの使い方:
+##   1. GitHub Actions の UI で「Run workflow」をクリック
+##   2. ブランチセレクタでデプロイ元のブランチを選択
+##   3. デプロイ先の環境を選択
+##   4. 「Run workflow」を実行
+##
+## 注意:
+##   - 手動実行時はワークフローファイルがデプロイ元ブランチに存在している必要があります
+##   - 差分がない場合はデプロイはスキップされます
+##   - 手動実行時、ブランチと環境が一致する場合（例: beta → beta）は全モジュールをデプロイします
+##
+name: deploy-all
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        type: choice
+        description: "デプロイ先の環境"
+        options: [beta, dev, stage, prod]
+      slack_notify_channel:
+        type: string
+        default: ''
+        description: "デプロイ結果の追加通知先 Slack チャンネル ID（空の場合は通知しない）"
+      slack_notify_author:
+        type: string
+        default: ''
+        description: "追加通知に表示する実行者名"
+  workflow_call:
+    inputs:
+      env:
+        type: string
+        required: true
+        description: "デプロイ先の環境"
+      base:
+        type: string
+        required: false
+        default: ''
+        description: "差分検出の基準コミット SHA（省略時は対象環境ブランチの HEAD を使用）"
+      slack_notify_channel:
+        type: string
+        required: false
+        default: ''
+        description: "デプロイ結果の追加通知先 Slack チャンネル ID（空の場合は通知しない）"
+      slack_notify_author:
+        type: string
+        required: false
+        default: ''
+        description: "追加通知に表示する実行者名"
+
+permissions:
+  contents: read
+
+# 同一環境への同時デプロイを防止する。
+# cancel-in-progress: false により、先行デプロイが完了するまで後続は待機する。
+# 注意: GitHub Actions の pending キューは最大1件のため、3件以上の同時実行では
+# 最新の pending のみが残り、中間の pending はキャンセルされる。
+concurrency:
+  group: deploy-all-${{ inputs.env }}
+  cancel-in-progress: false
+
+env:
+  SLACK_DEPLOY_CHANNEL_ID: ${{ vars.SLACK_DEPLOY_CHANNEL_ID }}
+
+jobs:
+  setup-job:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    outputs:
+      needs-to-deploy-algolia-index: ${{ steps.detect.outputs.needs-to-deploy-algolia-index }}
+      needs-to-deploy-app-server: ${{ steps.detect.outputs.needs-to-deploy-app-server }}
+      needs-to-deploy-manage: ${{ steps.detect.outputs.needs-to-deploy-manage }}
+      needs-to-deploy-web: ${{ steps.detect.outputs.needs-to-deploy-web }}
+      needs-to-deploy-migration: ${{ steps.detect.outputs.needs-to-deploy-migration }}
+      needs-to-deploy-firebase: ${{ steps.detect.outputs.needs-to-deploy-firebase }}
+      needs-to-deploy-document: ${{ steps.detect.outputs.needs-to-deploy-document }}
+      has-any-deploy-target: ${{ steps.summary.outputs.has-any-deploy-target }}
+      deploy-targets: ${{ steps.summary.outputs.deploy-targets }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Resolve base ref
+        id: target
+        env:
+          BASE_REF: ${{ inputs.base }}
+          REF_NAME: ${{ github.ref_name }}
+          TARGET_ENV: ${{ inputs.env }}
+        run: |
+          base="${BASE_REF}"
+          force_all=false
+          if [[ -z "$base" ]]; then
+            if [[ "${REF_NAME}" == "${TARGET_ENV}" ]]; then
+              # 環境名とブランチが一致する場合（例: beta ブランチから beta にデプロイ）は
+              # 差分が常に空になるため、全モジュールをデプロイ対象にする
+              force_all=true
+            fi
+            base=$(git rev-parse origin/${TARGET_ENV})
+          fi
+          echo "sha=$base" >> $GITHUB_OUTPUT
+          echo "force-all=$force_all" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/detect-deploy-targets
+        id: detect
+        with:
+          base: ${{ steps.target.outputs.sha }}
+          force-all: ${{ steps.target.outputs.force-all }}
+      - name: デプロイ対象のサマリーを出力
+        id: summary
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          TARGET_ENV: ${{ inputs.env }}
+        run: |
+          targets=()
+          if [[ "${{ steps.detect.outputs.needs-to-deploy-migration }}" == "true" ]]; then targets+=("migration"); fi
+          if [[ "${{ steps.detect.outputs.needs-to-deploy-algolia-index }}" == "true" ]]; then targets+=("algolia-index"); fi
+          if [[ "${{ steps.detect.outputs.needs-to-deploy-app-server }}" == "true" ]]; then targets+=("app-server"); fi
+          if [[ "${{ steps.detect.outputs.needs-to-deploy-web }}" == "true" ]]; then targets+=("web"); fi
+          if [[ "${{ steps.detect.outputs.needs-to-deploy-manage }}" == "true" ]]; then targets+=("manage"); fi
+          if [[ "${{ steps.detect.outputs.needs-to-deploy-firebase }}" == "true" ]]; then targets+=("firebase"); fi
+          if [[ "${{ steps.detect.outputs.needs-to-deploy-document }}" == "true" ]]; then targets+=("document"); fi
+
+          if [[ ${#targets[@]} -gt 0 ]]; then
+            echo "has-any-deploy-target=true" >> "$GITHUB_OUTPUT"
+            deploy_targets=$(IFS=', '; echo "${targets[*]}")
+            echo "deploy-targets=${deploy_targets}" >> "$GITHUB_OUTPUT"
+            echo "### デプロイ対象: ${deploy_targets}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- ブランチ: \`${REF_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- 環境: \`${TARGET_ENV}\`" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "has-any-deploy-target=false" >> "$GITHUB_OUTPUT"
+            echo "deploy-targets=" >> "$GITHUB_OUTPUT"
+            echo "### デプロイ対象なし" >> "$GITHUB_STEP_SUMMARY"
+            echo "\`${REF_NAME}\` と \`${TARGET_ENV}\` の間に差分がありません。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  migration:
+    permissions:
+      contents: read
+      id-token: write
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-deploy-migration == 'true' }}
+    uses: ./.github/workflows/deploy-on-push-migration.yml
+    with:
+      env: ${{ inputs.env }}
+    secrets: inherit
+
+  # firebase 依存ジョブは firebase の完了を待ってから実行する。
+  # firebase がスキップされた場合でもデプロイできるよう !cancelled() で暗黙の success() チェックを
+  # オーバーライドし、firebase が失敗した場合のみスキップする。
+  # 注意: always() ゲートジョブ（旧 wait-for-firebase）経由だと、GitHub Actions の仕様により
+  # 下流ジョブが暗黙の success() チェックで全てスキップされるため、この方式を採用している。
+  algolia-index:
+    permissions:
+      contents: read
+      id-token: write
+    needs: [setup-job, firebase]
+    if: |
+      !cancelled() &&
+      needs.firebase.result != 'failure' &&
+      needs.setup-job.outputs.needs-to-deploy-algolia-index == 'true'
+    uses: ./.github/workflows/deploy-on-push-algolia-index.yml
+    with:
+      env: ${{ inputs.env }}
+    secrets: inherit
+
+  app-server:
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    needs: [setup-job, firebase]
+    if: |
+      !cancelled() &&
+      needs.firebase.result != 'failure' &&
+      needs.setup-job.outputs.needs-to-deploy-app-server == 'true'
+    uses: ./.github/workflows/deploy-on-push-app-server.yml
+    with:
+      env: ${{ inputs.env }}
+    secrets: inherit
+
+  web:
+    permissions:
+      contents: read
+      id-token: write
+    needs: [setup-job, firebase]
+    if: |
+      !cancelled() &&
+      needs.firebase.result != 'failure' &&
+      needs.setup-job.outputs.needs-to-deploy-web == 'true'
+    uses: ./.github/workflows/deploy-on-push-common.yml
+    with:
+      env: ${{ inputs.env }}
+      app_name: web
+      concurrency_key: web
+      deploy_workflow_type: web
+    secrets: inherit
+
+  manage:
+    permissions:
+      contents: read
+      id-token: write
+    needs: [setup-job, firebase]
+    if: |
+      !cancelled() &&
+      needs.firebase.result != 'failure' &&
+      needs.setup-job.outputs.needs-to-deploy-manage == 'true'
+    uses: ./.github/workflows/deploy-on-push-common.yml
+    with:
+      env: ${{ inputs.env }}
+      app_name: manage
+      concurrency_key: manage
+      deploy_workflow_type: manage
+    secrets: inherit
+
+  firebase:
+    permissions:
+      contents: read
+      id-token: write
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-deploy-firebase == 'true' }}
+    uses: ./.github/workflows/deploy-on-push-common.yml
+    with:
+      env: ${{ inputs.env }}
+      app_name: firebase
+      concurrency_key: firebase
+      deploy_workflow_type: firebase
+    secrets: inherit
+
+  document:
+    permissions:
+      contents: read
+      id-token: write
+    needs: setup-job
+    if: ${{ needs.setup-job.outputs.needs-to-deploy-document == 'true' }}
+    uses: ./.github/workflows/deploy-on-push-common.yml
+    with:
+      env: ${{ inputs.env }}
+      app_name: document
+      concurrency_key: document
+      deploy_workflow_type: deploy
+    secrets: inherit
+
+  notify-deploy-start:
+    needs: setup-job
+    if: |
+      (inputs.env == 'stage' || inputs.env == 'prod') &&
+      needs.setup-job.outputs.has-any-deploy-target == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/slack-backend-notification
+        with:
+          env: ${{ inputs.env }}
+          message_type: deploy_start
+          slackToken: ${{ secrets.SLACK_BOT_TOKEN }}
+
+  # always() の if 条件が false になると GitHub Actions は「neutral」結論を返し、
+  # ワークフロー全体に ! アイコンが表示される。
+  # これを防ぐため、ジョブは常に実行し（if: always() で条件を true にする）、
+  # 通知の送信判断はステップレベルで行う。
+  notify-deploy-complete:
+    needs: [migration, algolia-index, app-server, web, manage, firebase, document]
+    if: always()
+    runs-on: ubuntu-latest
+    outputs:
+      any-deploy-succeeded: ${{ steps.check.outputs.any-deploy-succeeded }}
+    steps:
+      - name: デプロイ結果を確認
+        id: check
+        run: |
+          any_deploy_ran=false
+          any_deploy_succeeded=false
+          overall_result=success
+
+          results=(
+            "${{ needs.migration.result }}"
+            "${{ needs.algolia-index.result }}"
+            "${{ needs.app-server.result }}"
+            "${{ needs.web.result }}"
+            "${{ needs.manage.result }}"
+            "${{ needs.firebase.result }}"
+            "${{ needs.document.result }}"
+          )
+
+          for r in "${results[@]}"; do
+            if [[ "$r" != "skipped" ]]; then
+              any_deploy_ran=true
+              if [[ "$r" == "success" ]]; then
+                any_deploy_succeeded=true
+              elif [[ "$r" == "failure" ]]; then
+                overall_result=failure
+              fi
+            fi
+          done
+
+          echo "any-deploy-ran=$any_deploy_ran" >> "$GITHUB_OUTPUT"
+          echo "any-deploy-succeeded=$any_deploy_succeeded" >> "$GITHUB_OUTPUT"
+          echo "result=$overall_result" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+        if: ${{ steps.check.outputs.any-deploy-ran == 'true' && (inputs.env == 'stage' || inputs.env == 'prod') }}
+      - uses: ./.github/actions/slack-backend-notification
+        if: ${{ steps.check.outputs.any-deploy-ran == 'true' && (inputs.env == 'stage' || inputs.env == 'prod') }}
+        with:
+          env: ${{ inputs.env }}
+          message_type: deploy_complete
+          result: ${{ steps.check.outputs.result }}
+          slackToken: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      - name: デプロイ結果の通知メッセージを生成（追加通知先）
+        if: ${{ always() && inputs.slack_notify_channel != '' }}
+        id: extra-notify-message
+        env:
+          CHECK_RESULT: ${{ steps.check.outputs.result }}
+          REF_NAME: ${{ github.ref_name }}
+          TARGET_ENV: ${{ inputs.env }}
+        run: |
+          result="${CHECK_RESULT}"
+          branch="${REF_NAME}"
+
+          # cancelled の判定（既存の result ロジックでは未対応）
+          results=(
+            "${{ needs.migration.result }}"
+            "${{ needs.algolia-index.result }}"
+            "${{ needs.app-server.result }}"
+            "${{ needs.web.result }}"
+            "${{ needs.manage.result }}"
+            "${{ needs.firebase.result }}"
+            "${{ needs.document.result }}"
+          )
+
+          for r in "${results[@]}"; do
+            if [[ "$r" == "cancelled" ]]; then
+              result="cancelled"
+              break
+            fi
+          done
+
+          case "$result" in
+            success)
+              echo "message=${TARGET_ENV} 環境へ \`${branch}\` のデプロイが完了しました。(成功)" >> "$GITHUB_OUTPUT"
+              echo "color=good" >> "$GITHUB_OUTPUT"
+              ;;
+            failure)
+              echo "message=${TARGET_ENV} 環境へ \`${branch}\` のデプロイが完了しました。(失敗)" >> "$GITHUB_OUTPUT"
+              echo "color=danger" >> "$GITHUB_OUTPUT"
+              ;;
+            cancelled)
+              echo "message=${TARGET_ENV} 環境へ \`${branch}\` のデプロイがキャンセルされました。" >> "$GITHUB_OUTPUT"
+              echo "color=warning" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "message=${TARGET_ENV} 環境へ \`${branch}\` のデプロイが完了しました。(${result})" >> "$GITHUB_OUTPUT"
+              echo "color=warning" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Slack にデプロイ結果を通知（追加通知先）
+        if: ${{ always() && steps.extra-notify-message.outputs.message != '' }}
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          payload: |
+            {
+              "text": "${{ steps.extra-notify-message.outputs.message }}",
+              "channel": "${{ inputs.slack_notify_channel }}",
+              "attachments": [{
+                "color": "${{ steps.extra-notify-message.outputs.color }}",
+                "text": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run #${{ github.run_id }}>",
+                "footer": "Author <${{ github.server_url }}/${{ inputs.slack_notify_author }}|@${{ inputs.slack_notify_author }}>"
+              }]
+            }

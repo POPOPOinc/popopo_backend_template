@@ -1,0 +1,6 @@
+body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; color: #222; }
+.simple-page, .post-view { max-width: 640px; margin: 0 auto; }
+.post-view { border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
+.post-view__author { font-weight: bold; }
+.post-view__time { color: #888; font-size: 0.85em; }
+form { display: flex; gap: 8px; margin-bottom: 16px; }

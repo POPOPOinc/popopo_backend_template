@@ -1,0 +1,52 @@
+name: check and test (web)
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-test-web:
+    name: run check and test (web)
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+      - working-directory: ./web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run check
+          pnpm run lint
+          pnpm run build:mode beta
+          pnpm run prepare:ssr beta
+      - name: check (web/functions)
+        working-directory: ./web/functions
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run check
+          pnpm run build
+      - uses: reviewdog/action-eslint@3ee2a450da17e060b9dfa4bffd53976906c6b2b0 # v1.36.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          eslint_flags: "--config web/eslint.config.mjs web/src"
+          tool_name: 'eslint (web)'
+          level: error
+          fail_level: warning
+        if: github.event_name == 'pull_request'
+      - uses: reviewdog/action-eslint@3ee2a450da17e060b9dfa4bffd53976906c6b2b0 # v1.36.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          eslint_flags: "--config web/functions/eslint.config.mjs web/functions/src"
+          tool_name: 'eslint (web/functions)'
+          level: error
+          fail_level: warning
+        if: github.event_name == 'pull_request'

@@ -1,0 +1,7 @@
+# Cloud Run worker pools にデプロイする daemon の一覧（daemon ごとに 1 つの worker pool `daemon-<kebab-case の名前>` を作る）
+# 書式: <daemonDefinitions のキー> <インスタンス数>
+# - インスタンス数は固定（worker pools は手動スケーリング）。TaskConsumer のように並列に動かしてよい daemon だけ 2 以上にする
+# - 一覧と daemonDefinitions の一致は `pnpm -C app-server run check`（scripts/check-daemon-config-consistency.mjs）が確かめる
+consumeSyncPostToAlgoliaTask 1
+consumeSyncUserToAlgoliaTask 1
+updatePostDisplayPeriod 1

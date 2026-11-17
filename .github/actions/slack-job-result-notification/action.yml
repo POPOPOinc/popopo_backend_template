@@ -1,0 +1,76 @@
+name: slack-job-result-notification
+description: デプロイの成功をSlackに通知する
+
+inputs:
+  applicationName:
+    required: true
+    description: デプロイしたアプリケーションの名前(e.g. api-server, coin-ledger, ...)
+  refName:
+    required: true
+    description: ブランチ名
+  result:
+    required: true
+    description: 結果
+    # 取りうる値: success, failure, cancelled, skipped
+  env:
+    required: true
+    description: デプロイ先の環境
+    # 取りうる値: beta, dev, stage, prod
+  slackToken:
+    required: true
+    description: SlackのIncoming Webhook URL
+  slackAtChannelMentionOnFailure:
+    required: false
+    description: 失敗時に@channelメンションをつけるか
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: notify-target-channel
+      id: notify-target-channel
+      shell: bash
+      run: |
+        # 通知先チャンネル ID は呼び出し側で env.SLACK_DEPLOY_CHANNEL_ID (vars) として渡す
+        echo "result=${SLACK_DEPLOY_CHANNEL_ID:-}" > "$GITHUB_OUTPUT"
+    - name: notification-color
+      if: ${{ steps.notify-target-channel.outputs.result != '' }}
+      id: notification-color
+      shell: bash
+      env:
+        RESULT: ${{ inputs.result }}
+      run: |
+        case "${RESULT}" in
+          success)
+            echo color=good > "$GITHUB_OUTPUT"
+            ;;
+          failure)
+            echo color=danger > "$GITHUB_OUTPUT"
+            ;;
+          cancelled)
+            echo color=warning > "$GITHUB_OUTPUT"
+            ;;
+          skipped)
+            echo color=warning > "$GITHUB_OUTPUT"
+            ;;
+          *)
+            echo "Invalid result: ${RESULT}"
+            exit 1
+            ;;
+        esac
+    - name: notify-success
+      uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+      if: ${{ steps.notify-target-channel.outputs.result != '' && inputs.slackToken != '' && (inputs.result == 'success' || inputs.result == 'failure') }}
+      with:
+        method: chat.postMessage
+        token: ${{ inputs.slackToken }}
+        payload: |
+          {
+            "text": "${{ inputs.result == 'failure' && inputs.slackAtChannelMentionOnFailure == 'true' && '<!channel> ' || '' }}[${{ inputs.env }}][${{ inputs.applicationName }}]",
+            "channel": "${{ steps.notify-target-channel.outputs.result }}",
+            "attachments": [{
+              "color": "${{ steps.notification-color.outputs.color }}",
+              "text": "${{ inputs.result }} (ref: ${{ inputs.refName }}) <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run #${{ github.run_id }}>",
+              "footer": "Author <${{ github.server_url }}/${{ github.event.sender.login }}|@${{ github.event.sender.login }}>"
+            }]
+          }
